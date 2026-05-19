@@ -72,7 +72,7 @@ WEB_UI_PORT=5000
 # Enable/disable OpenTelemetry tracing
 ENABLE_OTEL_TRACING=true
 
-# OTEL collector endpoint (for local development)
+# OTEL collector endpoint (used for manual/non-Aspire runs)
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 
 # Log level (Trace, Debug, Information, Warning, Error, Critical)
@@ -85,9 +85,10 @@ WEB_UI_LOG_LEVEL=Information
 When running with `aspire start`:
 
 ```bash
-# Aspire Dashboard endpoint (auto-configured in AppHost)
-ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL=http://localhost:18889/api/otlp/v1/traces
-ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL=http://localhost:4317
+# OTLP endpoint and headers are injected by Aspire when resources use .WithOtlpExporter()
+# OTEL_EXPORTER_OTLP_ENDPOINT=<dynamic>
+# OTEL_EXPORTER_OTLP_HEADERS=<dynamic>
+# OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 
 # Runtime service ports are injected by Aspire to avoid port collisions:
 # NEMO_PORT=<dynamic>
@@ -150,7 +151,7 @@ curl http://127.0.0.1:5055/health
 | `WEB_UI_HOST` | No | 127.0.0.1 | Web UI hostname |
 | `WEB_UI_PORT` | No | 5000 | Web UI port |
 | `ENABLE_OTEL_TRACING` | No | true | Enable OpenTelemetry tracing |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | http://localhost:4317 | OTEL collector endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | http://localhost:4317 | OTEL collector endpoint (manual runs); Aspire injects dynamic value at runtime |
 | `NEMO_LOG_LEVEL` | No | Information | NeMo logging level |
 | `WEB_UI_LOG_LEVEL` | No | Information | Web UI logging level |
 

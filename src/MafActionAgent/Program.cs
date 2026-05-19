@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
-using OpenTelemetry.Exporter;
 using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Instrumentation.Http;
 using OpenTelemetry.Logs;
@@ -49,22 +48,22 @@ if (otelEnabled)
     
     var resource = ResourceBuilder.CreateDefault()
         .AddService(serviceName: "maf-action-agent", serviceVersion: "1.0.0");
-    var otelEndpoint = configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
-        ?? configuration["ASPIRE_RESOURCE_SERVICE_BINDING_OTEL_EXPORTER_OTLP_ENDPOINT"]
-        ?? "http://localhost:4317";
+    var otlpEndpointConfigured = !string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
 
-    var tracingBuilder = builder.Services
+    builder.Services
         .AddOpenTelemetry()
         .WithTracing(tracing =>
+        {
             tracing
                 .SetResourceBuilder(resource)
                 .AddAspNetCoreInstrumentation(opt => opt.RecordException = true)
-                .AddHttpClientInstrumentation(opt => opt.RecordException = true)
-                .AddOtlpExporter(opt =>
-                {
-                    opt.Endpoint = new Uri(otelEndpoint);
-                    opt.Protocol = OtlpExportProtocol.Grpc;
-                })
+                .AddHttpClientInstrumentation(opt => opt.RecordException = true);
+
+            if (otlpEndpointConfigured)
+            {
+                tracing.AddOtlpExporter();
+            }
+        }
         );
 
     builder.Logging.AddOpenTelemetry(logging =>
@@ -73,11 +72,11 @@ if (otelEnabled)
         logging.IncludeScopes = true;
         logging.ParseStateValues = true;
         logging.SetResourceBuilder(resource);
-        logging.AddOtlpExporter(opt =>
+
+        if (otlpEndpointConfigured)
         {
-            opt.Endpoint = new Uri(otelEndpoint);
-            opt.Protocol = OtlpExportProtocol.Grpc;
-        });
+            logging.AddOtlpExporter();
+        }
     });
 }
 
