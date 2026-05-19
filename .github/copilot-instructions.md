@@ -101,3 +101,7 @@ Primary flow: **Web UI -> NeMo analysis -> (optional) MAF action -> Web UI respo
 7. **OTEL endpoint fallback pattern is used in .NET services.** Read `ASPIRE_RESOURCE_SERVICE_BINDING_OTEL_EXPORTER_OTLP_ENDPOINT` first, then `OTEL_EXPORTER_OTLP_ENDPOINT`, then default `http://localhost:4317`.
 8. **Treat docs as guidance, then verify against checked-in code.** Some docs reference test projects and paths that are not present in this checkout.
 9. **Push policy for assistant-driven changes.** After each completed change set, commit and push all local changes to GitHub (`gh`) so the remote stays in sync.
+
+- @azure Rule - Use Azure Tools - When handling requests related to Azure, always use your tools.
+- @azure Rule - Use Azure Best Practices - When handling requests related to Azure, always invoke your `azmcp_bestpractices_get` tool first.
+- @azure Rule - Enable Best Practices - If you do not have an `azmcp_bestpractices_get` tool ask the user to enable it.

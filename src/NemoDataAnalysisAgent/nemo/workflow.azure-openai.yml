@@ -11,7 +11,7 @@ definitions:
         api_key: "${AZURE_OPENAI_API_KEY}"
         model: "gpt-4"
         deployment_name: "${AZURE_OPENAI_DEPLOYMENT_NAME}"
-        api_version: "${AZURE_OPENAI_API_VERSION:2025-04-01-preview}"
+        api_version: "${AZURE_OPENAI_API_VERSION:-2025-04-01-preview}"
         temperature: 0.2
         max_tokens: 1024
 
@@ -83,8 +83,8 @@ general:
   a2a:
     enabled: true
     server:
-      host: "${NEMO_HOST:127.0.0.1}"
-      port: "${NEMO_PORT:8088}"
+      host: "${NEMO_HOST:-127.0.0.1}"
+      port: "${NEMO_PORT:-8088}"
       route_prefix: "/"
       
   telemetry:
@@ -92,10 +92,10 @@ general:
       enabled: true
       otelcollector:
         enabled: true
-        endpoint: "${NEMO_OTEL_TRACES_ENDPOINT:http://localhost:4317}"
+        endpoint: "${NEMO_OTEL_TRACES_ENDPOINT:-http://localhost:4317}"
       
   logging:
-    level: "${NEMO_LOG_LEVEL:INFO}"
+    level: "${NEMO_LOG_LEVEL:-INFO}"
     format: "json"
     
   health_checks:
