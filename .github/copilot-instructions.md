@@ -6,8 +6,9 @@
 
 ```powershell
 # From repository root
+python -m venv .\.venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install -r .\requirements.txt
-python -m pip install -r .\src\NemoDataAnalysisAgent\nemo\requirements.txt
 ```
 
 ### Run the system
@@ -15,7 +16,7 @@ python -m pip install -r .\src\NemoDataAnalysisAgent\nemo\requirements.txt
 ```powershell
 # Terminal 1 (NeMo agent)
 Set-Location .\src\NemoDataAnalysisAgent
-python -m nat a2a serve --config_file .\nemo\workflow.yml --host 127.0.0.1 --port 8088 --name "nemo-data-analysis-agent"
+..\..\.venv\Scripts\nat.exe a2a serve --config_file .\nemo\workflow.yml --host 127.0.0.1 --port 8088 --name "nemo-data-analysis-agent"
 
 # Terminal 2 (MAF agent)
 dotnet run --project .\src\MafActionAgent

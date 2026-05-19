@@ -147,7 +147,7 @@ cd src/NemoDataAnalysisAgent
 python -m pytest tests/ -v
 
 # Test workflow file validity
-python -m nat validate --config_file nemo/workflow.yml
+..\..\.venv\Scripts\nat.exe validate --config_file nemo/workflow.yml
 ```
 
 ### MAF Agent Tests

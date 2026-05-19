@@ -25,7 +25,7 @@ var nemo = builder.AddExecutable(
         {
             "-NoProfile",
             "-Command",
-            "nat a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host 127.0.0.1 --port 8088 --name \"nemo-data-analysis-agent\""
+            "if (Test-Path '.\\.venv\\Scripts\\nat.exe') { & '.\\.venv\\Scripts\\nat.exe' a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host 127.0.0.1 --port 8088 --name \"nemo-data-analysis-agent\" } else { nat a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host 127.0.0.1 --port 8088 --name \"nemo-data-analysis-agent\" }"
         })
     .WithHttpEndpoint(name: "http", env: "NEMO_PORT", hostPort: 8088)
     .WithEnvironment("NEMO_HOST", "127.0.0.1")

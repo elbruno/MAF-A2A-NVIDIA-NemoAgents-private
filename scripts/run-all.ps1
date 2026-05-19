@@ -70,7 +70,13 @@ Write-Host "NeMo Agent is starting..." -ForegroundColor Cyan
 Write-Host "Endpoint: http://`$env:NEMO_HOST:`$env:NEMO_PORT" -ForegroundColor Green
 
 # Run NeMo with NAT CLI
-nat a2a serve --config_file .\nemo\workflow.yml --host `$env:NEMO_HOST --port `$env:NEMO_PORT --name "nemo-data-analysis-agent"
+`$venvNat = "..\..\.venv\Scripts\nat.exe"
+if (Test-Path `$venvNat) {
+    & `$venvNat a2a serve --config_file .\nemo\workflow.yml --host `$env:NEMO_HOST --port `$env:NEMO_PORT --name "nemo-data-analysis-agent"
+}
+else {
+    nat a2a serve --config_file .\nemo\workflow.yml --host `$env:NEMO_HOST --port `$env:NEMO_PORT --name "nemo-data-analysis-agent"
+}
 "@
     
     Start-Process pwsh -ArgumentList "-NoProfile", "-Command", $nemoScript -WindowStyle Normal

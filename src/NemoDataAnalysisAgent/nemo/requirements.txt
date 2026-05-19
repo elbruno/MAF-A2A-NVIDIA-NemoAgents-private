@@ -1,8 +1,8 @@
 # NeMo Agent Toolkit - Data Analysis Agent
 # Python dependencies specific to the NeMo agent
 
-# NeMo Agent Toolkit CLI (nat)
-nat>=0.4.3
+# NeMo Agent Toolkit A2A CLI (provides `nat` command)
+nvidia-nat-a2a>=1.6.0
 
 # Core dependencies
 python-dotenv>=1.0.0

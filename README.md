@@ -29,7 +29,8 @@ This repository demonstrates a practical workflow:
 
 - **Python 3.10+** with pip
 - **.NET 10 SDK** (download from <https://dotnet.microsoft.com/download>)
-- **One LLM Provider** (NVIDIA API or Azure OpenAI)
+- **NVIDIA API key** for the NeMo agent
+- **Azure OpenAI credentials** (`AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_KEY`) for the MAF/Web orchestration path
 - **Aspire CLI** (optional, for orchestrated startup): <https://aspire.dev/get-started/install-cli/>
 
 ### Step 1: Clone
@@ -39,19 +40,23 @@ git clone https://github.com/yourusername/MAF-A2A-NVIDIA-NemoAgents.git
 cd MAF-A2A-NVIDIA-NemoAgents
 ```
 
-Configure Aspire-managed secrets for one provider before startup:
+Configure Aspire-managed secrets before startup:
 
-- **NVIDIA**: `NVIDIA_API_KEY`
-- **Azure OpenAI**: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_KEY`
+- **NeMo Agent**: `NVIDIA_API_KEY`
+- **MAF/Web**: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_KEY`
 
 If you are running without Aspire, use the manual setup flow in **[Manual Startup Guide](docs/MANUAL-STARTUP.md)**.
 
 ### Step 2: Install Dependencies
 
 ```bash
+# Create and activate a local virtual environment
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
 # Install Python dependencies for NeMo
 pip install -r requirements.txt
-pip install -r src/NemoDataAnalysisAgent/nemo/requirements.txt
 
 # NeMo Toolkit CLI setup (required for running NeMo agent)
 # Already included in requirements.txt above
@@ -151,69 +156,16 @@ graph TB
 ✅ **Distributed Tracing** - OTEL correlation across all services  
 ✅ **Unified Logs** - Single pane of glass for all service logs  
 
----
-
-## 🔧 Configuration
-
-For comprehensive configuration options, environment variables, and provider setup, see **[Configuration Guide](docs/CONFIGURATION.md)**.
-
-Quick setup:
-
-```bash
-cp .env.example .env
-# Edit .env with your LLM provider credentials (NVIDIA or Azure OpenAI)
-```
-
-Key variables:
-
-- **LLM Provider**: `NVIDIA_API_KEY` or `AZURE_OPENAI_*` (choose one)
-- **Service Ports**: `NEMO_PORT=8088`, `MAF_PORT=5055`, `WEB_UI_PORT=5000`
-- **Observability**: `ENABLE_OTEL_TRACING=true`
-
----
-
 ## 📚 Documentation
 
 - **[Architecture Guide](docs/README-ARCHITECTURE.md)** - Deep dive into system design
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Environment variables, provider credentials, and service wiring details.
+- **[Testing Guide](docs/TESTING.md)** - Commands and workflows for unit, integration, and manual validation.
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Local Aspire startup plus container and cloud deployment flows.
 - **[Setup & Deployment](docs/SETUP-GUIDE.md)** - Detailed installation & troubleshooting
 - **[API Reference](docs/api-reference.md)** - Complete endpoint documentation
 - **[Contributing](docs/development/CONTRIBUTING.md)** - Development guidelines
 - **[ADRs](docs/development/architecture-decisions.md)** - Architecture decision records
-
----
-
-## 🧪 Testing
-
-For comprehensive testing procedures including unit tests, integration tests, and performance testing, see **[Testing Guide](docs/TESTING.md)**.
-
-Quick start:
-
-```bash
-# Run all tests
-dotnet test
-
-# Run with coverage
-dotnet test /p:CollectCoverage=true /p:CoverageFormat=opencover
-```
-
----
-
-## 🚀 Deployment
-
-For detailed deployment procedures covering local Aspire, Docker, Azure Container Instances, and Kubernetes, see **[Deployment Guide](docs/DEPLOYMENT.md)**.
-
-Quick start:
-
-```bash
-# Local development with Aspire (recommended)
-aspire start
-
-# Docker
-docker-compose up --build
-
-# Azure Container Instances
-./scripts/deploy-aci.ps1 -ResourceGroup my-rg -Environment staging
-```
 
 ---
 

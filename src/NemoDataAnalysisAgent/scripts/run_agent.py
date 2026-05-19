@@ -84,7 +84,7 @@ async def run_nemo_agent(provider: str, host: str, port: int):
     ]
     
     logger.info(f"Run this command: {' '.join(cmd)}")
-    logger.info("Note: Ensure NeMo Toolkit CLI (nat) is installed: pip install nat")
+    logger.info("Note: Ensure NeMo Toolkit CLI (nat) is installed: pip install nvidia-nat-a2a")
     
     # Placeholder for actual agent startup
     logger.info("Agent would start here...")

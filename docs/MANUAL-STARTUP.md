@@ -8,6 +8,7 @@ This guide shows how to start all components manually without using Azure Aspire
 - **.NET 10 SDK** (download from <https://dotnet.microsoft.com/download>)
 - **One LLM Provider** (NVIDIA API or Azure OpenAI)
 - Environment file configured (see [Configuration](./CONFIGURATION.md))
+- Local virtual environment created at repository root (`.venv`)
 
 ## Starting Each Component
 
@@ -17,7 +18,7 @@ Open three separate terminal windows in the project root directory.
 
 ```powershell
 Set-Location .\src\NemoDataAnalysisAgent
-python -m nat a2a serve --config_file .\nemo\workflow.yml --host 127.0.0.1 --port 8088
+..\..\.venv\Scripts\nat.exe a2a serve --config_file .\nemo\workflow.yml --host 127.0.0.1 --port 8088
 ```
 
 **Expected Output:**
@@ -79,8 +80,11 @@ taskkill /PID <PID> /F
 Ensure dependencies are installed:
 
 ```bash
+# From repository root
+python -m venv .venv
+# PowerShell
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-pip install -r src/NemoDataAnalysisAgent/nemo/requirements.txt
 ```
 
 ### Connection Errors
