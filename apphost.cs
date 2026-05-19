@@ -19,7 +19,7 @@ var nemo = builder.AddExecutable(
         {
             "-NoProfile",
             "-Command",
-            "if (Test-Path '.\\.venv\\Scripts\\nat.exe') { & '.\\.venv\\Scripts\\nat.exe' a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host $env:NEMO_HOST --port $env:NEMO_PORT --name \"nemo-data-analysis-agent\" } else { nat a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host $env:NEMO_HOST --port $env:NEMO_PORT --name \"nemo-data-analysis-agent\" }"
+            "if (Test-Path '.\\.venv\\Scripts\\nat.exe') { & '.\\.venv\\Scripts\\nat.exe' a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host $env:NEMO_HOST --port $env:NEMO_PORT --public_base_url $env:NEMO_PUBLIC_BASE_URL --name \"nemo-data-analysis-agent\" } else { nat a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host $env:NEMO_HOST --port $env:NEMO_PORT --public_base_url $env:NEMO_PUBLIC_BASE_URL --name \"nemo-data-analysis-agent\" }"
         })
     .WithHttpEndpoint(name: "http", env: "NEMO_PORT")
     .WithEnvironment("NEMO_HOST", "127.0.0.1")
@@ -35,6 +35,8 @@ var nemo = builder.AddExecutable(
         url.Url = "/.well-known/agent-card.json";
         url.DisplayText = "Agent Card";
     });
+
+nemo.WithEnvironment("NEMO_PUBLIC_BASE_URL", nemo.GetEndpoint("http"));
 
 // MAF Action Agent (.NET)
 var mafAgent = builder.AddExecutable(

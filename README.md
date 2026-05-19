@@ -77,6 +77,10 @@ aspire start
 # Aspire assigns NeMo/MAF runtime ports automatically to avoid local port collisions
 ```
 
+The Web UI also sends a one-time NeMo warm-up request during startup so the first demo prompt does not pay the full cold-start cost. Tune it with `NEMO_WARMUP_ENABLED`, `NEMO_WARMUP_DELAY_SECONDS`, `NEMO_WARMUP_TIMEOUT_SECONDS`, `NEMO_WARMUP_RETRY_DELAY_SECONDS`, and `NEMO_WARMUP_MAX_ATTEMPTS`.
+
+Chat responses now render agent markdown as formatted HTML in the conversation bubbles, so tables, lists, headings, and code blocks display correctly in the demo UI.
+
 If startup fails because local ports are already occupied:
 
 ```powershell
@@ -166,6 +170,7 @@ graph TB
 ✅ **Health Monitoring** - Continuous liveness & readiness checks  
 ✅ **Distributed Tracing** - OTEL correlation across all services  
 ✅ **Unified Logs** - Single pane of glass for all service logs  
+✅ **NeMo Pre-Warm** - Fire a synthetic startup request so the first user prompt is faster  
 
 ## 📚 Documentation
 

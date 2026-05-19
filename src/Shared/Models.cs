@@ -147,6 +147,7 @@ public class ChatResponse
 {
     public string MessageId { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    public string? ContentHtml { get; set; }
     public string RespondedBy { get; set; } = "Web Chat Orchestrator";
     public List<string> AnalysisInsights { get; set; } = new();
     public List<ActionResult>? ActionsExecuted { get; set; }

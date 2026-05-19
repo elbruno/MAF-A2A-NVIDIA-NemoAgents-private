@@ -25,32 +25,20 @@
 
             <!-- Predefined Questions -->
             <div class="mb-4">
-                <label class="form-label"><strong>Quick Test Questions:</strong></label>
-                <div class="btn-group-vertical w-100" role="group">
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Analyze quarterly revenue trends">
-                        📊 Analyze quarterly revenue trends
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Detect anomalies in system performance">
-                        ⚠️ Detect anomalies in system performance
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Generate monthly metrics report">
-                        📈 Generate monthly metrics report
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Trigger alert for high CPU usage">
-                        🚨 Trigger alert for high CPU usage
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Compare year-over-year growth">
-                        📉 Compare year-over-year growth
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="What insights can you provide about recent data trends?">
-                        💡 What insights can you provide about recent data trends?
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Send a report to the analytics team">
-                        📧 Send a report to the analytics team
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Check agent availability and health status">
-                        🏥 Check agent availability and health status
-                    </button>
+                <label for="predefinedQuestionSelect" class="form-label"><strong>Quick Test Questions:</strong></label>
+                <div class="input-group">
+                    <select class="form-select" id="predefinedQuestionSelect">
+                        <option value="">Select a test question...</option>
+                        <option value="Analyze quarterly revenue trends">📊 Analyze quarterly revenue trends</option>
+                        <option value="Detect anomalies in system performance">⚠️ Detect anomalies in system performance</option>
+                        <option value="Generate monthly metrics report">📈 Generate monthly metrics report</option>
+                        <option value="Trigger alert for high CPU usage">🚨 Trigger alert for high CPU usage</option>
+                        <option value="Compare year-over-year growth">📉 Compare year-over-year growth</option>
+                        <option value="What insights can you provide about recent data trends?">💡 What insights can you provide about recent data trends?</option>
+                        <option value="Send a report to the analytics team">📧 Send a report to the analytics team</option>
+                        <option value="Check agent availability and health status">🏥 Check agent availability and health status</option>
+                    </select>
+                    <button type="button" class="btn btn-outline-secondary" id="usePredefinedQuestionBtn">Use</button>
                 </div>
             </div>
 
@@ -90,7 +78,8 @@
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const refreshStatusBtn = document.getElementById('refreshStatusBtn');
-        const predefinedBtns = document.querySelectorAll('.predefined-btn');
+        const predefinedQuestionSelect = document.getElementById('predefinedQuestionSelect');
+        const usePredefinedQuestionBtn = document.getElementById('usePredefinedQuestionBtn');
         const sessionStorageKey = 'mafNemoChatSessionId';
 
         // Handle send button click
@@ -100,14 +89,18 @@
             if (e.key === 'Enter') sendMessage();
         });
 
-        // Handle predefined questions
-        predefinedBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const question = btn.getAttribute('data-question');
-                messageInput.value = question;
-                messageInput.focus();
-            });
-        });
+        function applyPredefinedQuestion() {
+            const question = predefinedQuestionSelect.value;
+            if (!question) {
+                return;
+            }
+
+            messageInput.value = question;
+            messageInput.focus();
+        }
+
+        usePredefinedQuestionBtn.addEventListener('click', applyPredefinedQuestion);
+        predefinedQuestionSelect.addEventListener('change', applyPredefinedQuestion);
 
         async function sendMessage() {
             const message = messageInput.value.trim();
@@ -128,7 +121,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     const responder = data.respondedBy || 'Agent';
-                    addMessageToChat('agent', responder, data.content || 'No response', data.responseTime);
+                    addMessageToChat('agent', responder, data.content || 'No response', data.responseTime, data.contentHtml);
                     
                     if (responder !== 'System' && data.analysisInsights && data.analysisInsights.length > 0) {
                         addMessageToChat('system', 'System', 'Insights: ' + data.analysisInsights.join(', '), new Date());
@@ -141,7 +134,7 @@
             }
         }
 
-        function addMessageToChat(role, actor, content, timestamp) {
+        function addMessageToChat(role, actor, content, timestamp, contentHtml = '') {
             const placeholder = chatMessagesDiv.querySelector('.chat-placeholder');
             if (placeholder) {
                 placeholder.remove();
@@ -152,6 +145,9 @@
 
             const timestampText = formatTimestamp(timestamp);
             const roleBadgeClass = role === 'user' ? 'chat-role-user' : (role === 'agent' ? 'chat-role-agent' : 'chat-role-system');
+            const renderedContent = contentHtml && contentHtml.trim().length > 0
+                ? contentHtml
+                : escapeHtml(content);
 
             rowEl.innerHTML = `
                 <div class="chat-bubble ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-other'}">
@@ -159,7 +155,7 @@
                         <span class="chat-role ${roleBadgeClass}">${escapeHtml(actor)}</span>
                         <span class="chat-timestamp">${escapeHtml(timestampText)}</span>
                     </div>
-                    <div class="chat-content">${escapeHtml(content)}</div>
+                    <div class="chat-content">${renderedContent}</div>
                 </div>
             `;
 
@@ -236,21 +232,6 @@
         loadServiceStatus();
     </script>
     <style>
-        .predefined-btn {
-            border: 1px solid #dee2e6;
-            text-align: left;
-            padding: 10px;
-            margin-bottom: 5px;
-            transition: all 0.3s ease;
-        }
-        .predefined-btn:hover {
-            background-color: #f8f9fa;
-            border-color: #007bff;
-        }
-        .btn-group-vertical {
-            display: flex;
-            flex-direction: column;
-        }
         .chat-container {
             height: 400px;
             overflow-y: auto;
@@ -307,8 +288,58 @@
             white-space: nowrap;
         }
         .chat-content {
-            white-space: pre-wrap;
             word-wrap: break-word;
+        }
+        .chat-content > :last-child {
+            margin-bottom: 0;
+        }
+        .chat-content p,
+        .chat-content ul,
+        .chat-content ol,
+        .chat-content pre,
+        .chat-content blockquote,
+        .chat-content table {
+            margin-bottom: 0.75rem;
+        }
+        .chat-content ul,
+        .chat-content ol {
+            padding-left: 1.4rem;
+        }
+        .chat-content pre {
+            background-color: #111827;
+            color: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+        }
+        .chat-content code {
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.9em;
+        }
+        .chat-content :not(pre) > code {
+            background-color: #e9ecef;
+            border-radius: 4px;
+            padding: 0.1rem 0.3rem;
+        }
+        .chat-content blockquote {
+            border-left: 4px solid #b8cdfa;
+            color: #495057;
+            margin-left: 0;
+            padding-left: 12px;
+        }
+        .chat-content table {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+            border-collapse: collapse;
+        }
+        .chat-content th,
+        .chat-content td {
+            border: 1px solid #dee2e6;
+            padding: 6px 8px;
+        }
+        .chat-content th {
+            background-color: #eef2f7;
         }
     </style>
 }

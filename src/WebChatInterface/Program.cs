@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Markdig;
 using OpenTelemetry;
 using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Instrumentation.Http;
@@ -13,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Shared.Models;
 
@@ -116,6 +119,7 @@ builder.Services
 // Add Application Services
 builder.Services.AddSingleton<IAgentOrchestrator, AgentOrchestrator>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddHostedService<AgentWarmupService>();
 
 var app = builder.Build();
 
@@ -338,8 +342,8 @@ class AgentOrchestrator : IAgentOrchestrator
             Name = ReadString(payload, "name"),
             Description = ReadString(payload, "description"),
             Version = ReadString(payload, "version"),
-            Endpoint = ResolveCardEndpoint(serviceBaseEndpoint, ReadString(payload, "endpoint")),
-            A2AVersion = ReadString(payload, "a2a_version", "a2AVersion")
+            Endpoint = ResolveCardEndpoint(serviceBaseEndpoint, ReadString(payload, "endpoint", "url")),
+            A2AVersion = ReadString(payload, "a2a_version", "a2AVersion", "protocolVersion")
         };
 
         if (TryGetProperty(payload, out var capabilitiesElement, "capabilities"))
@@ -393,7 +397,28 @@ class AgentOrchestrator : IAgentOrchestrator
 
         if (Uri.TryCreate(rawEndpoint, UriKind.Absolute, out var absoluteUri))
         {
-            return absoluteUri.ToString();
+            if (!Uri.TryCreate(NormalizeServiceBaseEndpoint(serviceBaseEndpoint), UriKind.Absolute, out var serviceBaseUri))
+            {
+                return absoluteUri.ToString();
+            }
+
+            var serviceAuthority = serviceBaseUri.GetLeftPart(UriPartial.Authority);
+            var rawAuthority = absoluteUri.GetLeftPart(UriPartial.Authority);
+
+            if (string.Equals(serviceAuthority, rawAuthority, StringComparison.OrdinalIgnoreCase))
+            {
+                return absoluteUri.ToString();
+            }
+
+            var canonicalBaseUri = new Uri($"{serviceAuthority.TrimEnd('/')}/");
+            var relativePath = absoluteUri.PathAndQuery.TrimStart('/');
+            var canonicalUri = string.IsNullOrWhiteSpace(relativePath)
+                ? canonicalBaseUri
+                : new Uri(canonicalBaseUri, relativePath);
+
+            return absoluteUri.Fragment.Length > 0
+                ? $"{canonicalUri}{absoluteUri.Fragment}"
+                : canonicalUri.ToString();
         }
 
         var baseWithSlash = $"{serviceBaseEndpoint.TrimEnd('/')}/";
@@ -548,6 +573,11 @@ class AgentOrchestrator : IAgentOrchestrator
 
 class ChatService : IChatService
 {
+    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml()
+        .Build();
+
     private readonly IAgentOrchestrator _orchestrator;
     private readonly ILogger<ChatService> _logger;
     private readonly TimeSpan _nemoTimeout;
@@ -597,6 +627,7 @@ class ChatService : IChatService
 
                 response.RespondedBy = "MAF Action Agent";
                 response.Content = actionDetails;
+                response.ContentHtml = RenderMarkdown(actionDetails);
                 response.ActionsExecuted = new List<ActionResult> { actionResult };
                 response.AnalysisInsights = new List<string>
                 {
@@ -615,6 +646,7 @@ class ChatService : IChatService
             var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, request.SessionId).WaitAsync(_nemoTimeout);
             response.RespondedBy = "NeMo Data Analysis Agent";
             response.Content = nemoReply;
+            response.ContentHtml = RenderMarkdown(nemoReply);
             response.AnalysisInsights = new List<string>
             {
                 "Request routed to NeMo Data Analysis Agent."
@@ -633,6 +665,16 @@ class ChatService : IChatService
             "NeMo analysis timed out or returned an invalid response."
         };
         return response;
+    }
+
+    private static string RenderMarkdown(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return string.Empty;
+        }
+
+        return Markdown.ToHtml(content, MarkdownPipeline);
     }
 
     private static string InferActionType(string normalizedMessage)
@@ -669,5 +711,89 @@ class ChatService : IChatService
                normalizedMessage.StartsWith("create", StringComparison.Ordinal) ||
                normalizedMessage.StartsWith("execute", StringComparison.Ordinal) ||
                normalizedMessage.StartsWith("run", StringComparison.Ordinal);
+    }
+}
+
+class AgentWarmupService : BackgroundService
+{
+    private readonly IAgentOrchestrator _orchestrator;
+    private readonly ILogger<AgentWarmupService> _logger;
+    private readonly bool _enabled;
+    private readonly TimeSpan _startupDelay;
+    private readonly TimeSpan _warmupTimeout;
+    private readonly TimeSpan _retryDelay;
+    private readonly int _maxAttempts;
+    private readonly string _warmupMessage;
+
+    public AgentWarmupService(IAgentOrchestrator orchestrator, IConfiguration configuration, ILogger<AgentWarmupService> logger)
+    {
+        _orchestrator = orchestrator;
+        _logger = logger;
+
+        _enabled = !bool.TryParse(configuration["NEMO_WARMUP_ENABLED"], out var enabled) || enabled;
+        _startupDelay = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_DELAY_SECONDS"], 5, 0, 60));
+        _warmupTimeout = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_TIMEOUT_SECONDS"], 120, 10, 300));
+        _retryDelay = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_RETRY_DELAY_SECONDS"], 5, 1, 60));
+        _maxAttempts = ClampSeconds(configuration["NEMO_WARMUP_MAX_ATTEMPTS"], 3, 1, 10);
+        _warmupMessage = configuration["NEMO_WARMUP_MESSAGE"]?.Trim()
+            ?? "Warm up the data analysis agent and reply with READY only.";
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!_enabled)
+        {
+            _logger.LogInformation("NeMo warm-up is disabled.");
+            return;
+        }
+
+        if (_startupDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(_startupDelay, stoppingToken);
+        }
+
+        for (var attempt = 1; attempt <= _maxAttempts && !stoppingToken.IsCancellationRequested; attempt++)
+        {
+            try
+            {
+                _logger.LogInformation("Starting NeMo warm-up attempt {Attempt} of {MaxAttempts}.", attempt, _maxAttempts);
+
+                var warmupReply = await _orchestrator
+                    .SendNemoMessageAsync(_warmupMessage, $"warmup-{Guid.NewGuid():N}")
+                    .WaitAsync(_warmupTimeout, stoppingToken);
+
+                _logger.LogInformation(
+                    "NeMo warm-up completed on attempt {Attempt}. Reply: {WarmupReply}",
+                    attempt,
+                    warmupReply);
+                return;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("NeMo warm-up canceled during shutdown.");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "NeMo warm-up attempt {Attempt} failed.", attempt);
+            }
+
+            if (attempt < _maxAttempts)
+            {
+                await Task.Delay(_retryDelay, stoppingToken);
+            }
+        }
+
+        _logger.LogWarning("NeMo warm-up did not complete after {MaxAttempts} attempts.", _maxAttempts);
+    }
+
+    private static int ClampSeconds(string? rawValue, int fallback, int min, int max)
+    {
+        if (!int.TryParse(rawValue, out var parsed))
+        {
+            return fallback;
+        }
+
+        return Math.Clamp(parsed, min, max);
     }
 }
