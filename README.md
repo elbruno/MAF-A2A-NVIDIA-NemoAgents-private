@@ -52,8 +52,11 @@ If you are running without Aspire, use the manual setup flow in **[Manual Startu
 ```bash
 # Create and activate a local virtual environment
 python -m venv .venv
+
 # Windows PowerShell
 .\.venv\Scripts\Activate.ps1
+# Linux/macOS
+source .venv/bin/activate
 
 # Install Python dependencies for NeMo
 pip install -r requirements.txt
