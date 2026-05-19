@@ -23,50 +23,6 @@ This repository demonstrates a practical workflow:
 
 ---
 
-## 🏗️ System Architecture
-
-```mermaid
-graph TB
-    subgraph "Web Layer"
-        UI["Chat UI<br/>(Blazor + ASP.NET)"]
-    end
-    
-    subgraph "Agent Layer"
-        NEMO["NeMo Data Analysis Agent<br/>(Python + Toolkit)<br/>Trends • Anomalies • Metrics"]
-        MAF["MAF Action Agent<br/>(.NET + Framework)<br/>Alerts • Reports • Actions"]
-    end
-    
-    subgraph "Communication"
-        A2A["A2A Protocol<br/>(JSON-RPC)<br/>Service Discovery"]
-    end
-    
-    subgraph "Orchestration"
-        ASPIRE["Azure Aspire<br/>Health • Tracing • Discovery"]
-    end
-    
-    UI -->|Chat Request| A2A
-    A2A -->|Analysis Request| NEMO
-    NEMO -->|Analysis Results| A2A
-    A2A -->|Action Trigger| MAF
-    MAF -->|Action Status| A2A
-    A2A -->|Display Results| UI
-    
-    ASPIRE -.->|Health Checks<br/>Service Discovery<br/>OTEL Tracing| NEMO
-    ASPIRE -.->|Health Checks<br/>Service Discovery<br/>OTEL Tracing| MAF
-    ASPIRE -.->|Health Checks<br/>Service Discovery<br/>OTEL Tracing| UI
-```
-
-### Key Integration Points
-
-| Component | Role | Port | Technology |
-|-----------|------|------|-----------|
-| **NeMo Agent** | Data Analysis | 8088 | Python + NVIDIA NeMo Toolkit |
-| **MAF Agent** | Action Execution | 5055 | .NET 10 + Microsoft Agent Framework |
-| **Web UI** | User Interface | 5000 | Blazor + ASP.NET Core |
-| **Aspire** | Orchestration | Dashboard | Service discovery, health, OTEL tracing |
-
----
-
 ## ⚡ Quick Start (3 Steps)
 
 ### Prerequisites
@@ -112,6 +68,50 @@ aspire start
 # Open Aspire Dashboard at http://localhost:18888
 # Click on each service to view logs and health
 ```
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TB
+    subgraph "Web Layer"
+        UI["Chat UI<br/>(Blazor + ASP.NET)"]
+    end
+    
+    subgraph "Agent Layer"
+        NEMO["NeMo Data Analysis Agent<br/>(Python + Toolkit)<br/>Trends • Anomalies • Metrics"]
+        MAF["MAF Action Agent<br/>(.NET + Framework)<br/>Alerts • Reports • Actions"]
+    end
+    
+    subgraph "Communication"
+        A2A["A2A Protocol<br/>(JSON-RPC)<br/>Service Discovery"]
+    end
+    
+    subgraph "Orchestration"
+        ASPIRE["Azure Aspire<br/>Health • Tracing • Discovery"]
+    end
+    
+    UI -->|Chat Request| A2A
+    A2A -->|Analysis Request| NEMO
+    NEMO -->|Analysis Results| A2A
+    A2A -->|Action Trigger| MAF
+    MAF -->|Action Status| A2A
+    A2A -->|Display Results| UI
+    
+    ASPIRE -.->|Health Checks<br/>Service Discovery<br/>OTEL Tracing| NEMO
+    ASPIRE -.->|Health Checks<br/>Service Discovery<br/>OTEL Tracing| MAF
+    ASPIRE -.->|Health Checks<br/>Service Discovery<br/>OTEL Tracing| UI
+```
+
+### Key Integration Points
+
+| Component | Role | Port | Technology |
+|-----------|------|------|-----------|
+| **NeMo Agent** | Data Analysis | 8088 | Python + NVIDIA NeMo Toolkit |
+| **MAF Agent** | Action Execution | 5055 | .NET 10 + Microsoft Agent Framework |
+| **Web UI** | User Interface | 5000 | Blazor + ASP.NET Core |
+| **Aspire** | Orchestration | Dashboard | Service discovery, health, OTEL tracing |
 
 ---
 
