@@ -175,6 +175,19 @@ curl http://127.0.0.1:5055/health
 - Verify services are running on configured hosts/ports
 - Try using `localhost` instead of `127.0.0.1` if DNS issues
 
+### "Address already in use" / Port collisions
+
+Use the helper scripts from the repository root:
+
+```powershell
+.\scripts\check-port-conflicts.ps1
+.\scripts\stop-port-conflicts.ps1 -Force
+```
+
+Notes:
+- `check-port-conflicts.ps1` checks NeMo/MAF/Web default ports (`8088`, `5055`, `5000`).
+- `stop-port-conflicts.ps1` stops only the detected blocking listeners by PID.
+
 ## Next Steps
 
 - See [Manual Startup](./MANUAL-STARTUP.md) to run components manually

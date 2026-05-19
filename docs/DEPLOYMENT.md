@@ -284,6 +284,13 @@ env | grep -i config_var
 netstat -ano | findstr :5000
 ```
 
+For local Windows runs, you can also use the built-in cleanup scripts from the repository root:
+
+```powershell
+.\scripts\check-port-conflicts.ps1
+.\scripts\stop-port-conflicts.ps1 -Force
+```
+
 ### Connection Failures Between Services
 
 ```bash
