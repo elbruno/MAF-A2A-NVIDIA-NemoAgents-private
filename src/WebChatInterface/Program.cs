@@ -14,6 +14,7 @@ using OpenTelemetry.Trace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -117,6 +118,7 @@ builder.Services
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" });
 
 // Add Application Services
+builder.Services.AddSingleton<AgentWarmupState>();
 builder.Services.AddSingleton<IAgentOrchestrator, AgentOrchestrator>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddHostedService<AgentWarmupService>();
@@ -579,17 +581,28 @@ class ChatService : IChatService
         .Build();
 
     private readonly IAgentOrchestrator _orchestrator;
+    private readonly AgentWarmupState _warmupState;
     private readonly ILogger<ChatService> _logger;
     private readonly TimeSpan _nemoTimeout;
+    private readonly TimeSpan _warmupRequestMaxWait;
 
-    public ChatService(IAgentOrchestrator orchestrator, ILogger<ChatService> logger, IConfiguration configuration)
+    public ChatService(
+        IAgentOrchestrator orchestrator,
+        AgentWarmupState warmupState,
+        ILogger<ChatService> logger,
+        IConfiguration configuration)
     {
         _orchestrator = orchestrator;
+        _warmupState = warmupState;
         _logger = logger;
         var timeoutSeconds = int.TryParse(configuration["NEMO_CHAT_TIMEOUT_SECONDS"], out var parsedSeconds)
             ? parsedSeconds
             : 300;
         _nemoTimeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 300));
+        var warmupWaitSeconds = int.TryParse(configuration["NEMO_WARMUP_REQUEST_MAX_WAIT_SECONDS"], out var parsedWarmupWaitSeconds)
+            ? parsedWarmupWaitSeconds
+            : 5;
+        _warmupRequestMaxWait = TimeSpan.FromSeconds(Math.Clamp(warmupWaitSeconds, 0, 30));
     }
 
     public async Task<ChatResponse> ProcessChatAsync(ChatRequest request)
@@ -629,10 +642,6 @@ class ChatService : IChatService
                 response.Content = actionDetails;
                 response.ContentHtml = RenderMarkdown(actionDetails);
                 response.ActionsExecuted = new List<ActionResult> { actionResult };
-                response.AnalysisInsights = new List<string>
-                {
-                    "Action workflow executed through MAF Action Agent."
-                };
                 return response;
             }
             catch (Exception ex)
@@ -643,14 +652,19 @@ class ChatService : IChatService
 
         try
         {
-            var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, request.SessionId).WaitAsync(_nemoTimeout);
-            response.RespondedBy = "NeMo Data Analysis Agent";
-            response.Content = nemoReply;
-            response.ContentHtml = RenderMarkdown(nemoReply);
-            response.AnalysisInsights = new List<string>
+            var warmupStatus = await _warmupState.WaitForAvailabilityAsync(_warmupRequestMaxWait, CancellationToken.None);
+            if (warmupStatus == WarmupAvailability.WarmingUp)
             {
-                "Request routed to NeMo Data Analysis Agent."
-            };
+                response.RespondedBy = "System";
+                response.Content = "NeMo Data Analysis Agent is still warming up. Please try again in a few seconds.";
+                return response;
+            }
+
+            var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, request.SessionId).WaitAsync(_nemoTimeout);
+            var cleanedNemoReply = CleanNemoReply(nemoReply);
+            response.RespondedBy = "NeMo Data Analysis Agent";
+            response.Content = cleanedNemoReply;
+            response.ContentHtml = RenderMarkdown(cleanedNemoReply);
             return response;
         }
         catch (Exception ex)
@@ -675,6 +689,117 @@ class ChatService : IChatService
         }
 
         return Markdown.ToHtml(content, MarkdownPipeline);
+    }
+
+    private static string CleanNemoReply(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return string.Empty;
+        }
+
+        var insightsMatch = Regex.Match(
+            content,
+            @"(?is)(?:\*\*)?Insights and Recommendations(?:\*\*)?\s*(?<body>.+)$");
+        if (insightsMatch.Success)
+        {
+            var extracted = $"## Insights and Recommendations{Environment.NewLine}{Environment.NewLine}{insightsMatch.Groups["body"].Value.Trim()}";
+            if (extracted.Length >= 40)
+            {
+                return extracted;
+            }
+        }
+
+        var normalizedContent = content.Replace("\r\n", "\n");
+        var summarySections = new List<string>();
+        var recommendationLines = new List<string>();
+        var recommendationHeadingAdded = false;
+        var capturingRecommendations = false;
+
+        foreach (var rawLine in normalizedContent.Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                if (capturingRecommendations && recommendationLines.Count > 0)
+                {
+                    capturingRecommendations = false;
+                }
+
+                continue;
+            }
+
+            if (Regex.IsMatch(line, @"^Recommendations:?\s*$", RegexOptions.IgnoreCase))
+            {
+                capturingRecommendations = true;
+                if (!recommendationHeadingAdded)
+                {
+                    recommendationLines.Add("## Recommendations");
+                    recommendationHeadingAdded = true;
+                }
+
+                continue;
+            }
+
+            if (capturingRecommendations)
+            {
+                if (line.StartsWith("*", StringComparison.Ordinal) ||
+                    line.StartsWith("-", StringComparison.Ordinal) ||
+                    Regex.IsMatch(line, @"^\d+\.\s+"))
+                {
+                    recommendationLines.Add(line);
+                    continue;
+                }
+
+                capturingRecommendations = false;
+            }
+
+            if (Regex.IsMatch(line, @"^(Based on (these results|the analysis|this analysis)|In summary|Overall|The .*trend|There (are|were) no anomalies|The mean .*|The median .*|The average .*|Average .*|Median .*|Revenue .*|This indicates)", RegexOptions.IgnoreCase))
+            {
+                summarySections.Add(line);
+            }
+        }
+
+        if (summarySections.Count > 0 || recommendationLines.Count > 0)
+        {
+            var sections = new List<string>();
+            if (summarySections.Count > 0)
+            {
+                sections.Add(string.Join($"{Environment.NewLine}{Environment.NewLine}", summarySections.Distinct(StringComparer.OrdinalIgnoreCase)));
+            }
+
+            if (recommendationLines.Count > 0)
+            {
+                sections.Add(string.Join(Environment.NewLine, recommendationLines));
+            }
+
+            var extractedSummary = string.Join($"{Environment.NewLine}{Environment.NewLine}", sections).Trim();
+            if (extractedSummary.Length >= 40)
+            {
+                return extractedSummary;
+            }
+        }
+
+        var cleaned = content;
+        cleaned = Regex.Replace(cleaned, "```json\\s*[\\s\\S]*?```", string.Empty, RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*Based on the previous conversation.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*Using .*tool.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*\d+\.\s+\*\*.*\*\*:\s*.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*Running the .*tool.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*To analyze .*Here's the input:.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*\*\*Tool:.*\*\*\s*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*\*\*Tool\s+\d+:.*\*\*\s*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*\*\*(Input|Output):\*\*\s*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*(First|Next|Then|Finally), I will.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*I('|’)ll .*?(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*Let me know if you'd like to explore further.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*To analyze .*available tools.*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*Here('|’)s the analysis:\s*(?:\r?\n)?", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?im)^\s*\*\*Analysis Results:\*\*\s*$", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(\r?\n){3,}", Environment.NewLine + Environment.NewLine);
+        cleaned = cleaned.Trim();
+
+        return cleaned.Length >= 40 ? cleaned : content.Trim();
     }
 
     private static string InferActionType(string normalizedMessage)
@@ -714,9 +839,90 @@ class ChatService : IChatService
     }
 }
 
+enum WarmupAvailability
+{
+    WarmingUp,
+    Ready,
+    Failed
+}
+
+class AgentWarmupState
+{
+    private readonly TaskCompletionSource _availability = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly object _sync = new();
+    private WarmupAvailability _status = WarmupAvailability.WarmingUp;
+
+    public WarmupAvailability Status
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _status;
+            }
+        }
+    }
+
+    public void MarkStarted()
+    {
+        lock (_sync)
+        {
+            _status = WarmupAvailability.WarmingUp;
+        }
+    }
+
+    public void MarkCompleted()
+    {
+        lock (_sync)
+        {
+            _status = WarmupAvailability.Ready;
+        }
+
+        _availability.TrySetResult();
+    }
+
+    public void MarkFailed()
+    {
+        lock (_sync)
+        {
+            _status = WarmupAvailability.Failed;
+        }
+
+        _availability.TrySetResult();
+    }
+
+    public void MarkDisabled()
+    {
+        lock (_sync)
+        {
+            _status = WarmupAvailability.Ready;
+        }
+
+        _availability.TrySetResult();
+    }
+
+    public async Task<WarmupAvailability> WaitForAvailabilityAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (Status != WarmupAvailability.WarmingUp)
+        {
+            return Status;
+        }
+
+        if (timeout <= TimeSpan.Zero)
+        {
+            return WarmupAvailability.WarmingUp;
+        }
+
+        var delayTask = Task.Delay(timeout, cancellationToken);
+        await Task.WhenAny(_availability.Task, delayTask);
+        return Status;
+    }
+}
+
 class AgentWarmupService : BackgroundService
 {
     private readonly IAgentOrchestrator _orchestrator;
+    private readonly AgentWarmupState _state;
     private readonly ILogger<AgentWarmupService> _logger;
     private readonly bool _enabled;
     private readonly TimeSpan _startupDelay;
@@ -725,27 +931,35 @@ class AgentWarmupService : BackgroundService
     private readonly int _maxAttempts;
     private readonly string _warmupMessage;
 
-    public AgentWarmupService(IAgentOrchestrator orchestrator, IConfiguration configuration, ILogger<AgentWarmupService> logger)
+    public AgentWarmupService(
+        IAgentOrchestrator orchestrator,
+        AgentWarmupState state,
+        IConfiguration configuration,
+        ILogger<AgentWarmupService> logger)
     {
         _orchestrator = orchestrator;
+        _state = state;
         _logger = logger;
 
         _enabled = !bool.TryParse(configuration["NEMO_WARMUP_ENABLED"], out var enabled) || enabled;
-        _startupDelay = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_DELAY_SECONDS"], 5, 0, 60));
+        _startupDelay = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_DELAY_SECONDS"], 0, 0, 60));
         _warmupTimeout = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_TIMEOUT_SECONDS"], 120, 10, 300));
         _retryDelay = TimeSpan.FromSeconds(ClampSeconds(configuration["NEMO_WARMUP_RETRY_DELAY_SECONDS"], 5, 1, 60));
         _maxAttempts = ClampSeconds(configuration["NEMO_WARMUP_MAX_ATTEMPTS"], 3, 1, 10);
         _warmupMessage = configuration["NEMO_WARMUP_MESSAGE"]?.Trim()
-            ?? "Warm up the data analysis agent and reply with READY only.";
+            ?? "Use analyze_time_series, calculate_metrics, detect_anomalies, and generate_insights on quarterly revenue values [100, 110, 120, 130] for Q1-Q4 2024. After all tool calls complete, reply with READY only.";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!_enabled)
         {
+            _state.MarkDisabled();
             _logger.LogInformation("NeMo warm-up is disabled.");
             return;
         }
+
+        _state.MarkStarted();
 
         if (_startupDelay > TimeSpan.Zero)
         {
@@ -766,6 +980,7 @@ class AgentWarmupService : BackgroundService
                     "NeMo warm-up completed on attempt {Attempt}. Reply: {WarmupReply}",
                     attempt,
                     warmupReply);
+                _state.MarkCompleted();
                 return;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -784,6 +999,7 @@ class AgentWarmupService : BackgroundService
             }
         }
 
+        _state.MarkFailed();
         _logger.LogWarning("NeMo warm-up did not complete after {MaxAttempts} attempts.", _maxAttempts);
     }
 

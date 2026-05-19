@@ -77,9 +77,9 @@ aspire start
 # Aspire assigns NeMo/MAF runtime ports automatically to avoid local port collisions
 ```
 
-The Web UI also sends a one-time NeMo warm-up request during startup so the first demo prompt does not pay the full cold-start cost. Tune it with `NEMO_WARMUP_ENABLED`, `NEMO_WARMUP_DELAY_SECONDS`, `NEMO_WARMUP_TIMEOUT_SECONDS`, `NEMO_WARMUP_RETRY_DELAY_SECONDS`, and `NEMO_WARMUP_MAX_ATTEMPTS`.
+The Web UI also sends a one-time NeMo warm-up request during startup so the first demo prompt does not pay the full cold-start cost. Tune it with `NEMO_WARMUP_ENABLED`, `NEMO_WARMUP_DELAY_SECONDS`, `NEMO_WARMUP_TIMEOUT_SECONDS`, `NEMO_WARMUP_RETRY_DELAY_SECONDS`, `NEMO_WARMUP_MAX_ATTEMPTS`, and `NEMO_WARMUP_REQUEST_MAX_WAIT_SECONDS`. The default warm-up prompt now runs a small analysis workflow so it exercises the same NeMo tool path as a real demo request. If a user sends a message while warm-up is still running, the Web UI returns a fast “still warming up” response instead of leaving the chat request hanging.
 
-Chat responses now render agent markdown as formatted HTML in the conversation bubbles, so tables, lists, headings, and code blocks display correctly in the demo UI.
+Chat responses now render agent markdown as formatted HTML in the conversation bubbles, so tables, lists, headings, and code blocks display correctly in the demo UI. The NeMo prompt is also constrained to return concise final answers instead of exposing raw tool-call transcripts by default, and the NeMo workflow is tuned for shorter chat-friendly replies.
 
 If startup fails because local ports are already occupied:
 

@@ -109,6 +109,9 @@
             // Add user message to chat
             addMessageToChat('user', 'You', message, new Date());
             messageInput.value = '';
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            const pendingMessage = addMessageToChat('system', 'System', 'Working on your request...', new Date());
 
             try {
                 // Send to backend
@@ -121,16 +124,19 @@
                 if (response.ok) {
                     const data = await response.json();
                     const responder = data.respondedBy || 'Agent';
+                    pendingMessage.remove();
                     addMessageToChat('agent', responder, data.content || 'No response', data.responseTime, data.contentHtml);
-                    
-                    if (responder !== 'System' && data.analysisInsights && data.analysisInsights.length > 0) {
-                        addMessageToChat('system', 'System', 'Insights: ' + data.analysisInsights.join(', '), new Date());
-                    }
                 } else {
+                    pendingMessage.remove();
                     addMessageToChat('system', 'System', 'Error: ' + response.statusText, new Date());
                 }
             } catch (error) {
+                pendingMessage.remove();
                 addMessageToChat('system', 'System', 'Error: ' + error.message, new Date());
+            } finally {
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
             }
         }
 

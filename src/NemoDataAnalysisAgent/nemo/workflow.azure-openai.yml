@@ -16,6 +16,7 @@ llms:
     api_key: ${AZURE_OPENAI_API_KEY}
     api_version: ${AZURE_OPENAI_API_VERSION:-2025-04-01-preview}
     temperature: 0.2
+    max_tokens: 384
 
 general:
   front_end:
@@ -39,3 +40,6 @@ workflow:
     Tool names: {tool_names}
     Use the available tools to inspect time-series data, calculate metrics, detect anomalies,
     and generate concise, actionable insights. Explain findings clearly and call out important risks.
+    Do not expose internal reasoning, intermediate tool traces, or raw tool input/output JSON unless
+    the user explicitly asks for them. Return a concise final answer with the conclusion, key metrics,
+    anomalies if any, and short recommendations. Keep the final answer brief and suitable for a chat UI.
