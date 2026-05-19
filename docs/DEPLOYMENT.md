@@ -185,7 +185,7 @@ When deploying to production:
 
 ```bash
 # 1. Start orchestration layer
-dotnet run --project tools/AspireAppHost.csproj
+aspire start
 
 # 2. Verify all services healthy (via dashboard)
 # 3. Run smoke tests

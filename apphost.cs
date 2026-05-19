@@ -1,4 +1,4 @@
-#:sdk Aspire.AppHost.Sdk@10.0.0
+#:sdk Aspire.AppHost.Sdk@13.0.0
 
 using Aspire.Hosting;
 
@@ -27,7 +27,7 @@ var nemo = builder.AddExecutable(
             "-Command",
             "if (Test-Path '.\\.venv\\Scripts\\nat.exe') { & '.\\.venv\\Scripts\\nat.exe' a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host 127.0.0.1 --port 8088 --name \"nemo-data-analysis-agent\" } else { nat a2a serve --config_file .\\src\\NemoDataAnalysisAgent\\nemo\\workflow.yml --host 127.0.0.1 --port 8088 --name \"nemo-data-analysis-agent\" }"
         })
-    .WithHttpEndpoint(name: "http", env: "NEMO_PORT", hostPort: 8088)
+    .WithHttpEndpoint(name: "http", env: "NEMO_PORT", port: 8088)
     .WithEnvironment("NEMO_HOST", "127.0.0.1")
     .WithEnvironment("NEMO_PORT", "8088")
     .WithEnvironment("NVIDIA_API_KEY", nvidiaApiKey)
@@ -44,8 +44,17 @@ var nemo = builder.AddExecutable(
     });
 
 // MAF Action Agent (.NET)
-var mafAgent = builder.AddProject<Projects.MafActionAgent>(name: "maf-agent")
-    .WithHttpEndpoint(name: "http", env: "MAF_PORT", hostPort: 5055)
+var mafAgent = builder.AddExecutable(
+        name: "maf-agent",
+        command: "dotnet",
+        workingDirectory: ".",
+        args: new[]
+        {
+            "run",
+            "--project",
+            ".\\src\\MafActionAgent\\MafActionAgent.csproj"
+        })
+    .WithHttpEndpoint(name: "http", env: "MAF_PORT", port: 5055)
     .WithEnvironment("MAF_HOST", "127.0.0.1")
     .WithEnvironment("MAF_PORT", "5055")
     .WithEnvironment("NEMO_A2A_ENDPOINT", nemo.GetEndpoint("http"))
@@ -63,8 +72,17 @@ var mafAgent = builder.AddProject<Projects.MafActionAgent>(name: "maf-agent")
     });
 
 // Web Chat Interface (.NET)
-var webUi = builder.AddProject<Projects.WebChatInterface>(name: "web-ui")
-    .WithHttpEndpoint(name: "http", env: "WEB_UI_PORT", hostPort: 5000)
+var webUi = builder.AddExecutable(
+        name: "web-ui",
+        command: "dotnet",
+        workingDirectory: ".",
+        args: new[]
+        {
+            "run",
+            "--project",
+            ".\\src\\WebChatInterface\\WebChatInterface.csproj"
+        })
+    .WithHttpEndpoint(name: "http", env: "WEB_UI_PORT", port: 5000)
     .WithEnvironment("NEMO_A2A_ENDPOINT", nemo.GetEndpoint("http"))
     .WithEnvironment("MAF_AGENT_ENDPOINT", mafAgent.GetEndpoint("http"))
     .WithEnvironment("NVIDIA_API_KEY", nvidiaApiKey)
@@ -83,10 +101,3 @@ var webUi = builder.AddProject<Projects.WebChatInterface>(name: "web-ui")
 
 // Build and run
 builder.Build().Run();
-
-// Project references for Aspire
-namespace Projects
-{
-    public class MafActionAgent { }
-    public class WebChatInterface { }
-}

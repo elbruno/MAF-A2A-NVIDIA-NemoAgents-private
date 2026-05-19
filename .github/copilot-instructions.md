@@ -67,7 +67,7 @@ python -m mypy .\src\NemoDataAnalysisAgent
 Repository state notes:
 
 1. `src\Tests\*` paths referenced in docs are not currently present in this checkout.
-2. `AppHost.csproj` + `apphost.cs` can fail with `CS9298` because `apphost.cs` uses `#:` file-based directives.
+2. The Aspire host is file-based (`apphost.cs` at repo root); do not add an `AppHost.csproj`.
 
 ## High-level architecture
 

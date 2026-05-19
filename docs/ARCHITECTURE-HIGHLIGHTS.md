@@ -294,7 +294,7 @@ Observability
 **Technology**: Aspire SDK for .NET
 
 ```
-Aspire App Host (AppHost.csproj)
+Aspire App Host (file-based `apphost.cs`)
     ├─ NeMo Agent (Executable)
     │  ├─ Command: python + NAT CLI
     │  ├─ Port: 8088

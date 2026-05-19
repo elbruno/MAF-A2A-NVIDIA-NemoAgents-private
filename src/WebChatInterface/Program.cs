@@ -84,7 +84,7 @@ builder.Services.AddCors(options =>
 });
 
 // Add HTTP Client
-builder.Services.AddHttpClient<AgentClient>(client =>
+builder.Services.AddHttpClient<IAgentClient, AgentClient>(client =>
 {
     client.DefaultRequestHeaders.Add("Accept", "application/json");
 });
@@ -92,15 +92,7 @@ builder.Services.AddHttpClient<AgentClient>(client =>
 // Add Health Checks
 builder.Services
     .AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
-    .AddUrlCheck(configuration["NEMO_A2A_ENDPOINT"] + "/.well-known/agent-card.json", 
-        name: "nemo-agent", 
-        tags: new[] { "services" },
-        timeout: TimeSpan.FromSeconds(5))
-    .AddUrlCheck(configuration["MAF_AGENT_ENDPOINT"] + "/health", 
-        name: "maf-agent", 
-        tags: new[] { "services" },
-        timeout: TimeSpan.FromSeconds(5));
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" });
 
 // Add Application Services
 builder.Services.AddSingleton<IAgentOrchestrator, AgentOrchestrator>();
@@ -253,9 +245,9 @@ class AgentOrchestrator : IAgentOrchestrator
     private readonly IConfiguration _configuration;
     private readonly ILogger<AgentOrchestrator> _logger;
 
-    public AgentOrchestrator(HttpClient httpClient, IConfiguration configuration, ILogger<AgentOrchestrator> logger)
+    public AgentOrchestrator(IAgentClient agentClient, IConfiguration configuration, ILogger<AgentOrchestrator> logger)
     {
-        _agentClient = new AgentClient(httpClient, logger);
+        _agentClient = agentClient;
         _configuration = configuration;
         _logger = logger;
     }

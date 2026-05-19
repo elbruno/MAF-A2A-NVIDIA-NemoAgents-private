@@ -111,6 +111,7 @@ public class ServiceDiscoveryResult
     public string Status { get; set; } = string.Empty; // Running, Stopped, Error
     public string Endpoint { get; set; } = string.Empty;
     public AgentCard? AgentCard { get; set; }
+    public string? LastError { get; set; }
     public DateTime LastChecked { get; set; }
 }
 
