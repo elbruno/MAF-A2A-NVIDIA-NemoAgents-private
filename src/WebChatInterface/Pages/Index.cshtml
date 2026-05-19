@@ -1,0 +1,203 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Chat Interface";
+}
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <h1>Multi-Agent Chat Interface</h1>
+            <p class="lead">Chat with NeMo Data Analysis and MAF Action agents</p>
+            
+            <!-- Chat Messages Area -->
+            <div class="card mb-4" style="height: 400px; overflow-y: auto;" id="chatMessages">
+                <div class="card-body">
+                    <p class="text-muted text-center">Chat history will appear here...</p>
+                </div>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." />
+                <button class="btn btn-primary" type="button" id="sendBtn">Send</button>
+            </div>
+
+            <!-- Predefined Questions -->
+            <div class="mb-4">
+                <label class="form-label"><strong>Quick Test Questions:</strong></label>
+                <div class="btn-group-vertical w-100" role="group">
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Analyze quarterly revenue trends">
+                        📊 Analyze quarterly revenue trends
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Detect anomalies in system performance">
+                        ⚠️ Detect anomalies in system performance
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Generate monthly metrics report">
+                        📈 Generate monthly metrics report
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Trigger alert for high CPU usage">
+                        🚨 Trigger alert for high CPU usage
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Compare year-over-year growth">
+                        📉 Compare year-over-year growth
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="What insights can you provide about recent data trends?">
+                        💡 What insights can you provide about recent data trends?
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Send a report to the analytics team">
+                        📧 Send a report to the analytics team
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary text-start predefined-btn" data-question="Check agent availability and health status">
+                        🏥 Check agent availability and health status
+                    </button>
+                </div>
+            </div>
+
+            <!-- Service Status -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">Service Status</div>
+                        <div class="card-body">
+                            <small id="serviceStatus" class="text-muted">Loading...</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">Configuration</div>
+                        <div class="card-body">
+                            <small id="configStatus" class="text-muted">
+                                NeMo: <span id="nemoHost">-</span>:<span id="nemoPort">-</span><br/>
+                                MAF: <span id="mafHost">-</span>:<span id="mafPort">-</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const chatMessagesDiv = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const predefinedBtns = document.querySelectorAll('.predefined-btn');
+
+        // Handle send button click
+        sendBtn.addEventListener('click', () => sendMessage());
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Handle predefined questions
+        predefinedBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const question = btn.getAttribute('data-question');
+                messageInput.value = question;
+                sendMessage();
+            });
+        });
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessageToChat('user', message);
+            messageInput.value = '';
+
+            try {
+                // Send to backend
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addMessageToChat('agent', data.content || 'No response');
+                    
+                    if (data.analysisInsights && data.analysisInsights.length > 0) {
+                        addMessageToChat('system', 'Insights: ' + data.analysisInsights.join(', '));
+                    }
+                } else {
+                    addMessageToChat('system', 'Error: ' + response.statusText);
+                }
+            } catch (error) {
+                addMessageToChat('system', 'Error: ' + error.message);
+            }
+        }
+
+        function addMessageToChat(role, content) {
+            const messageEl = document.createElement('div');
+            messageEl.className = 'mb-3';
+            
+            let roleClass = 'text-primary';
+            let roleIcon = '👤';
+            
+            if (role === 'agent') {
+                roleClass = 'text-success';
+                roleIcon = '🤖';
+            } else if (role === 'system') {
+                roleClass = 'text-warning';
+                roleIcon = 'ℹ️';
+            }
+            
+            messageEl.innerHTML = `
+                <strong class="${roleClass}">${roleIcon} ${role.toUpperCase()}:</strong>
+                <p>${escapeHtml(content)}</p>
+            `;
+            
+            chatMessagesDiv.appendChild(messageEl);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load service status
+        async function loadServiceStatus() {
+            try {
+                const response = await fetch('/api/agents/discovery');
+                if (response.ok) {
+                    const services = await response.json();
+                    const statusHtml = services.map(s => 
+                        `<span class="badge ${s.status === 'Running' ? 'bg-success' : 'bg-danger'}">${s.serviceName}: ${s.status}</span>`
+                    ).join(' ');
+                    document.getElementById('serviceStatus').innerHTML = statusHtml || 'No services found';
+                }
+            } catch (error) {
+                document.getElementById('serviceStatus').innerHTML = 'Error loading status: ' + error.message;
+            }
+        }
+
+        // Initialize
+        loadServiceStatus();
+        setInterval(loadServiceStatus, 10000); // Refresh every 10 seconds
+    </script>
+    <style>
+        .predefined-btn {
+            border: 1px solid #dee2e6;
+            text-align: left;
+            padding: 10px;
+            margin-bottom: 5px;
+            transition: all 0.3s ease;
+        }
+        .predefined-btn:hover {
+            background-color: #f8f9fa;
+            border-color: #007bff;
+        }
+        .btn-group-vertical {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+}

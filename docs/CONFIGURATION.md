@@ -1,0 +1,175 @@
+# Configuration
+
+This guide covers all configuration options for the MAF-A2A-NVIDIA-NemoAgents system.
+
+## Environment Setup
+
+### Creating .env File
+
+```bash
+# Copy the template
+cp .env.example .env
+
+# Edit and add your credentials
+# Use your preferred editor (code, vim, notepad, etc.)
+```
+
+## LLM Provider Configuration
+
+Choose **ONE** of the following:
+
+### Option A: NVIDIA API
+
+```bash
+# Get API key from https://build.nvidia.com/
+NVIDIA_API_KEY=sk-your-key-here
+
+# Optional: Customize NeMo agent host/port
+NEMO_HOST=127.0.0.1
+NEMO_PORT=8088
+```
+
+**Supported Models:**
+- `meta/llama-2-7b-chat`
+- `meta/llama-2-70b-chat`
+- `mistralai/mistral-7b-instruct-v0.1`
+- And more via NVIDIA NIM
+
+### Option B: Azure OpenAI
+
+```bash
+# Get these from Azure OpenAI resource
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4-turbo
+AZURE_OPENAI_API_KEY=your-api-key
+
+# Optional: Customize services
+NEMO_HOST=127.0.0.1
+NEMO_PORT=8088
+```
+
+**Note:** Use the full endpoint URL with trailing slash.
+
+## Service Endpoints
+
+```bash
+# NeMo Data Analysis Agent
+NEMO_HOST=127.0.0.1
+NEMO_PORT=8088
+
+# MAF Action Agent
+MAF_HOST=127.0.0.1
+MAF_PORT=5055
+
+# Web UI
+WEB_UI_HOST=127.0.0.1
+WEB_UI_PORT=5000
+```
+
+## Observability & Tracing
+
+```bash
+# Enable/disable OpenTelemetry tracing
+ENABLE_OTEL_TRACING=true
+
+# OTEL collector endpoint (for local development)
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+
+# Log level (Trace, Debug, Information, Warning, Error, Critical)
+NEMO_LOG_LEVEL=Information
+WEB_UI_LOG_LEVEL=Information
+```
+
+## Aspire Configuration
+
+When running with `aspire start`:
+
+```bash
+# Aspire Dashboard endpoint (auto-configured in AppHost)
+ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL=http://localhost:18889/api/otlp/v1/traces
+ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL=http://localhost:4317
+```
+
+## Advanced Configuration
+
+### NeMo Workflow Config
+
+The NeMo agent uses a workflow YAML file located at `src/NemoDataAnalysisAgent/nemo/workflow.yml`.
+
+Key settings:
+- **Tools**: Data analysis tools (time-series, anomaly detection, metrics)
+- **Provider**: NVIDIA API or Azure OpenAI
+- **Model**: LLM model to use for analysis
+- **Temperature**: LLM creativity (0.0-1.0)
+
+### Customizing Models
+
+To use a specific LLM model, update `workflow.yml`:
+
+```yaml
+llm_config:
+  provider: "nvidia"  # or "azure_openai"
+  model: "meta/llama-2-70b-chat"
+  temperature: 0.3
+```
+
+### Health Check Endpoints
+
+The system exposes health check endpoints:
+
+```bash
+# Web UI health
+curl http://localhost:5000/health
+
+# NeMo agent card
+curl http://127.0.0.1:8088/.well-known/agent-card.json
+
+# MAF agent health
+curl http://127.0.0.1:5055/health
+```
+
+## Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `NVIDIA_API_KEY` | Conditional | - | NVIDIA API key (if using NVIDIA provider) |
+| `AZURE_OPENAI_ENDPOINT` | Conditional | - | Azure OpenAI endpoint (if using Azure) |
+| `AZURE_OPENAI_DEPLOYMENT_NAME` | Conditional | - | Azure deployment name (if using Azure) |
+| `AZURE_OPENAI_API_KEY` | Conditional | - | Azure OpenAI API key (if using Azure) |
+| `NEMO_HOST` | No | 127.0.0.1 | NeMo agent hostname |
+| `NEMO_PORT` | No | 8088 | NeMo agent port |
+| `MAF_HOST` | No | 127.0.0.1 | MAF agent hostname |
+| `MAF_PORT` | No | 5055 | MAF agent port |
+| `WEB_UI_HOST` | No | 127.0.0.1 | Web UI hostname |
+| `WEB_UI_PORT` | No | 5000 | Web UI port |
+| `ENABLE_OTEL_TRACING` | No | true | Enable OpenTelemetry tracing |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | http://localhost:4317 | OTEL collector endpoint |
+| `NEMO_LOG_LEVEL` | No | Information | NeMo logging level |
+| `WEB_UI_LOG_LEVEL` | No | Information | Web UI logging level |
+
+## Troubleshooting Configuration
+
+### "API Key Invalid" Error
+
+- Verify key is copied correctly (no extra spaces)
+- Check key hasn't expired
+- For NVIDIA: visit <https://build.nvidia.com/> to verify account status
+- For Azure: verify resource exists and deployment is active
+
+### "Provider Not Found"
+
+- Ensure exactly one provider is configured
+- Check for typos in provider names
+- Restart the agent after changing `.env`
+
+### Connection Timeouts
+
+- Check firewall allows connections on configured ports
+- Verify services are running on configured hosts/ports
+- Try using `localhost` instead of `127.0.0.1` if DNS issues
+
+## Next Steps
+
+- See [Manual Startup](./MANUAL-STARTUP.md) to run components manually
+- See [Deployment](./DEPLOYMENT.md) for production setup
+- See [Testing](./TESTING.md) to validate configuration
