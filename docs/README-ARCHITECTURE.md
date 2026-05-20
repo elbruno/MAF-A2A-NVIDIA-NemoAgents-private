@@ -57,6 +57,7 @@ Routing behavior in `src/WebChatInterface/Program.cs`:
    - and start with one of: `trigger`, `generate`, `send`, `create`, `execute`, `run`
 2. Otherwise Web UI calls **NeMo** for analysis.
 3. If the MAF action call fails, Web UI falls back to NeMo.
+4. For a 2-step flow, Web UI stores the latest NeMo result per `sessionId` and injects it into the next MAF action as `analysisSummary`, `analysisSourcePrompt`, and `analysisCapturedAtUtc` (TTL-bounded in memory).
 
 ### Example Workflow: "Analyze Q4 Sales Data"
 

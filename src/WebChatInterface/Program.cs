@@ -12,6 +12,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -119,6 +120,7 @@ builder.Services
 
 // Add Application Services
 builder.Services.AddSingleton<AgentWarmupState>();
+builder.Services.AddSingleton<IConversationContextStore, ConversationContextStore>();
 builder.Services.AddSingleton<IAgentOrchestrator, AgentOrchestrator>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddHostedService<AgentWarmupService>();
@@ -205,11 +207,19 @@ interface IChatService
     Task<ChatResponse> ProcessChatAsync(ChatRequest request);
 }
 
+interface IConversationContextStore
+{
+    AnalysisContextEntry? GetLatestAnalysis(string sessionId);
+    void SaveAnalysis(string sessionId, string sourcePrompt, string analysisSummary);
+}
+
 interface IAgentClient
 {
     Task<T> GetAsync<T>(string url);
     Task<T> PostAsync<T>(string url, object payload);
 }
+
+record AnalysisContextEntry(string SourcePrompt, string Summary, DateTime CapturedAtUtc);
 
 // Service implementations
 class AgentClient : IAgentClient
@@ -573,6 +583,90 @@ class AgentOrchestrator : IAgentOrchestrator
     }
 }
 
+class ConversationContextStore : IConversationContextStore
+{
+    private readonly ConcurrentDictionary<string, AnalysisContextEntry> _analysisBySession = new(StringComparer.Ordinal);
+    private readonly TimeSpan _ttl;
+    private readonly int _maxSummaryLength;
+    private readonly ILogger<ConversationContextStore> _logger;
+
+    public ConversationContextStore(IConfiguration configuration, ILogger<ConversationContextStore> logger)
+    {
+        _logger = logger;
+        var ttlMinutes = int.TryParse(configuration["CHAT_ANALYSIS_CONTEXT_TTL_MINUTES"], out var parsedTtlMinutes)
+            ? parsedTtlMinutes
+            : 30;
+        _ttl = TimeSpan.FromMinutes(Math.Clamp(ttlMinutes, 1, 240));
+        var maxSummaryLength = int.TryParse(configuration["CHAT_ANALYSIS_CONTEXT_MAX_LENGTH"], out var parsedMaxSummaryLength)
+            ? parsedMaxSummaryLength
+            : 1600;
+        _maxSummaryLength = Math.Clamp(maxSummaryLength, 200, 8000);
+    }
+
+    public AnalysisContextEntry? GetLatestAnalysis(string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return null;
+        }
+
+        if (!_analysisBySession.TryGetValue(sessionId, out var entry))
+        {
+            return null;
+        }
+
+        if (DateTime.UtcNow - entry.CapturedAtUtc <= _ttl)
+        {
+            return entry;
+        }
+
+        _analysisBySession.TryRemove(sessionId, out _);
+        return null;
+    }
+
+    public void SaveAnalysis(string sessionId, string sourcePrompt, string analysisSummary)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(analysisSummary))
+        {
+            return;
+        }
+
+        var normalizedSummary = analysisSummary.Trim();
+        if (normalizedSummary.Length > _maxSummaryLength)
+        {
+            normalizedSummary = normalizedSummary[.._maxSummaryLength];
+        }
+
+        var normalizedPrompt = string.IsNullOrWhiteSpace(sourcePrompt)
+            ? string.Empty
+            : sourcePrompt.Trim();
+        if (normalizedPrompt.Length > 300)
+        {
+            normalizedPrompt = normalizedPrompt[..300];
+        }
+
+        _analysisBySession[sessionId] = new AnalysisContextEntry(
+            SourcePrompt: normalizedPrompt,
+            Summary: normalizedSummary,
+            CapturedAtUtc: DateTime.UtcNow);
+        _logger.LogDebug("Stored NeMo analysis context for session {SessionId}", sessionId);
+
+        CleanupExpiredEntries();
+    }
+
+    private void CleanupExpiredEntries()
+    {
+        var expirationThreshold = DateTime.UtcNow - _ttl;
+        foreach (var kvp in _analysisBySession)
+        {
+            if (kvp.Value.CapturedAtUtc < expirationThreshold)
+            {
+                _analysisBySession.TryRemove(kvp.Key, out _);
+            }
+        }
+    }
+}
+
 class ChatService : IChatService
 {
     private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
@@ -581,6 +675,7 @@ class ChatService : IChatService
         .Build();
 
     private readonly IAgentOrchestrator _orchestrator;
+    private readonly IConversationContextStore _contextStore;
     private readonly AgentWarmupState _warmupState;
     private readonly ILogger<ChatService> _logger;
     private readonly TimeSpan _nemoTimeout;
@@ -588,11 +683,13 @@ class ChatService : IChatService
 
     public ChatService(
         IAgentOrchestrator orchestrator,
+        IConversationContextStore contextStore,
         AgentWarmupState warmupState,
         ILogger<ChatService> logger,
         IConfiguration configuration)
     {
         _orchestrator = orchestrator;
+        _contextStore = contextStore;
         _warmupState = warmupState;
         _logger = logger;
         var timeoutSeconds = int.TryParse(configuration["NEMO_CHAT_TIMEOUT_SECONDS"], out var parsedSeconds)
@@ -608,6 +705,7 @@ class ChatService : IChatService
     public async Task<ChatResponse> ProcessChatAsync(ChatRequest request)
     {
         _logger.LogInformation($"Processing chat: {request.Message}");
+        var sessionId = ResolveSessionId(request.SessionId);
 
         var normalized = request.Message.ToLowerInvariant();
         var response = new ChatResponse
@@ -631,12 +729,29 @@ class ChatService : IChatService
                 }
             };
 
+            var analysisContext = _contextStore.GetLatestAnalysis(sessionId);
+            if (analysisContext is not null)
+            {
+                actionRequest.Parameters["analysisSummary"] = analysisContext.Summary;
+                actionRequest.Parameters["analysisSourcePrompt"] = analysisContext.SourcePrompt;
+                actionRequest.Parameters["analysisCapturedAtUtc"] = analysisContext.CapturedAtUtc.ToString("O");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.AnalysisContext))
+            {
+                actionRequest.Parameters["explicitAnalysisContext"] = request.AnalysisContext.Trim();
+            }
+
             try
             {
                 var actionResult = await _orchestrator.ExecuteActionAsync(actionRequest);
                 var actionDetails = string.IsNullOrWhiteSpace(actionResult.Details)
                     ? "Action workflow processed by MAF Action Agent."
                     : actionResult.Details;
+                if (analysisContext is not null)
+                {
+                    actionDetails = $"{actionDetails}{Environment.NewLine}{Environment.NewLine}Used prior NeMo analysis context from this chat session.";
+                }
 
                 response.RespondedBy = "MAF Action Agent";
                 response.Content = actionDetails;
@@ -660,8 +775,9 @@ class ChatService : IChatService
                 return response;
             }
 
-            var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, request.SessionId).WaitAsync(_nemoTimeout);
+            var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, sessionId).WaitAsync(_nemoTimeout);
             var cleanedNemoReply = CleanNemoReply(nemoReply);
+            _contextStore.SaveAnalysis(sessionId, request.Message, cleanedNemoReply);
             response.RespondedBy = "NeMo Data Analysis Agent";
             response.Content = cleanedNemoReply;
             response.ContentHtml = RenderMarkdown(cleanedNemoReply);
@@ -679,6 +795,16 @@ class ChatService : IChatService
             "NeMo analysis timed out or returned an invalid response."
         };
         return response;
+    }
+
+    private static string ResolveSessionId(string? incomingSessionId)
+    {
+        if (!string.IsNullOrWhiteSpace(incomingSessionId))
+        {
+            return incomingSessionId.Trim();
+        }
+
+        return $"web-chat-{Guid.NewGuid():N}";
     }
 
     private static string RenderMarkdown(string content)

@@ -105,6 +105,19 @@ Examples:
 - **NeMo path**: `Analyze quarterly revenue trends`
 - **MAF path**: `Trigger alert for high CPU usage`
 
+### 🔗 2-prompt chain demo (NeMo -> MAF)
+
+The chat service now supports a session-based 2-step chain:
+
+1. Prompt 1 (NeMo): `Analyze quarterly revenue trends`
+2. Prompt 2 (MAF): `Trigger alert for high CPU usage based on the analysis findings`
+
+When step 2 runs, the Web UI enriches the MAF action payload with the latest NeMo summary from the same `sessionId`:
+
+- `analysisSummary`
+- `analysisSourcePrompt`
+- `analysisCapturedAtUtc`
+
 ---
 
 ## 🏗️ System Architecture

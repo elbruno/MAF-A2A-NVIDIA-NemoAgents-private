@@ -1,16 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const PROMPT = 'Analyze quarterly revenue trends';
+const ANALYSIS_PROMPT = 'Analyze quarterly revenue trends';
+const ACTION_PROMPT = 'Trigger alert for high CPU usage based on the analysis findings';
 
-type ChatResult = {
-  elapsedMs: number;
+type ChatTurn = {
   actor: string;
   content: string;
 };
 
-async function sendPrompt(page: Page, prompt: string): Promise<ChatResult> {
+async function sendPrompt(page: Page, prompt: string): Promise<ChatTurn> {
   await page.fill('#messageInput', prompt);
-  const start = Date.now();
   await page.click('#sendBtn');
   await page.waitForFunction(() => !((document.getElementById('sendBtn') as HTMLButtonElement | null)?.disabled ?? true), {
     timeout: 120_000
@@ -21,12 +20,7 @@ async function sendPrompt(page: Page, prompt: string): Promise<ChatResult> {
   const lastRow = rows.nth(rowCount - 1);
   const actor = (await lastRow.locator('.chat-role').innerText()).trim();
   const content = (await lastRow.locator('.chat-content').innerText()).replace(/\s+/g, ' ').trim();
-
-  return {
-    elapsedMs: Date.now() - start,
-    actor,
-    content
-  };
+  return { actor, content };
 }
 
 async function sendPromptUntilAgent(
@@ -34,7 +28,7 @@ async function sendPromptUntilAgent(
   prompt: string,
   expectedActorContains: string,
   maxAttempts = 5
-): Promise<ChatResult> {
+): Promise<ChatTurn> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const result = await sendPrompt(page, prompt);
     if (result.actor.toLowerCase().includes(expectedActorContains.toLowerCase())) {
@@ -61,28 +55,16 @@ async function sendPromptUntilAgent(
   return sendPrompt(page, prompt);
 }
 
-test('quarterly revenue prompt has acceptable response latency', async ({ page }) => {
+test('two-prompt chain routes NeMo then MAF with analysis context', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#messageInput')).toBeVisible();
 
-  const samples: number[] = [];
+  const analysis = await sendPromptUntilAgent(page, ANALYSIS_PROMPT, 'nemo');
 
-  for (let i = 0; i < 3; i++) {
-    const result = await sendPromptUntilAgent(page, PROMPT, 'nemo');
+  expect(analysis.actor.toLowerCase()).toContain('nemo');
+  expect(analysis.content.length).toBeGreaterThan(20);
 
-    expect(result.actor.toLowerCase()).toContain('nemo');
-    expect(result.content.length).toBeGreaterThan(20);
-    samples.push(result.elapsedMs);
-    await page.waitForTimeout(500);
-  }
-
-  const averageMs = Math.round(samples.reduce((sum, item) => sum + item, 0) / samples.length);
-  const maxMs = Math.max(...samples);
-
-  console.log(`Chat latency samples (ms): ${samples.join(', ')}`);
-  console.log(`Chat latency average (ms): ${averageMs}`);
-  console.log(`Chat latency max (ms): ${maxMs}`);
-
-  expect(averageMs).toBeLessThan(5000);
-  expect(maxMs).toBeLessThan(10000);
+  const action = await sendPromptUntilAgent(page, ACTION_PROMPT, 'maf');
+  expect(action.actor.toLowerCase()).toContain('maf');
+  expect(action.content.toLowerCase()).toContain('used prior nemo analysis context');
 });

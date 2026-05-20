@@ -115,6 +115,14 @@ This repository includes a browser-based latency test for the exact chat flow:
 npx playwright test tests/playwright/chat-latency.spec.ts
 ```
 
+### Playwright 2-Prompt Chain Test (NeMo -> MAF)
+
+Validates the session workflow where analysis is executed first and action execution uses the prior analysis context:
+
+```bash
+npx playwright test tests/playwright/chat-chain.spec.ts
+```
+
 ## Performance Testing
 
 ### Load Testing with Apache Bench

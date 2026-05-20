@@ -168,6 +168,8 @@ curl http://127.0.0.1:5055/health
 | `MAF_PORT` | No | 5055 | MAF agent port |
 | `WEB_UI_HOST` | No | 127.0.0.1 | Web UI hostname |
 | `WEB_UI_PORT` | No | 5000 | Web UI port |
+| `CHAT_ANALYSIS_CONTEXT_TTL_MINUTES` | No | 30 | TTL for storing prior NeMo analysis per chat session |
+| `CHAT_ANALYSIS_CONTEXT_MAX_LENGTH` | No | 1600 | Max stored characters for NeMo summary forwarded to MAF |
 | `ENABLE_OTEL_TRACING` | No | true | Enable OpenTelemetry tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | http://localhost:4317 | OTEL collector endpoint (manual runs); Aspire injects dynamic value at runtime |
 | `NEMO_LOG_LEVEL` | No | Information | NeMo logging level |

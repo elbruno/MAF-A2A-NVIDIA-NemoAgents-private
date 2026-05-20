@@ -81,6 +81,7 @@
         const predefinedQuestionSelect = document.getElementById('predefinedQuestionSelect');
         const usePredefinedQuestionBtn = document.getElementById('usePredefinedQuestionBtn');
         const sessionStorageKey = 'mafNemoChatSessionId';
+        const chainHintStorageKey = 'mafNemoChainHintShown';
 
         // Handle send button click
         sendBtn.addEventListener('click', () => sendMessage());
@@ -126,6 +127,7 @@
                     const responder = data.respondedBy || 'Agent';
                     pendingIndicator.dispose();
                     addMessageToChat('agent', responder, data.content || 'No response', data.responseTime, data.contentHtml);
+                    maybeShowChainHint(responder);
                 } else {
                     pendingIndicator.dispose();
                     addMessageToChat('system', 'System', 'Error: ' + response.statusText, new Date());
@@ -219,6 +221,24 @@
                 window.localStorage.setItem(sessionStorageKey, sessionId);
             }
             return sessionId;
+        }
+
+        function maybeShowChainHint(responder) {
+            if (!responder || !responder.toLowerCase().includes('nemo')) {
+                return;
+            }
+
+            if (window.localStorage.getItem(chainHintStorageKey) === 'true') {
+                return;
+            }
+
+            addMessageToChat(
+                'system',
+                'System',
+                'Tip: for a 2-step workflow demo, now send an action prompt like "Trigger alert for high CPU usage based on the analysis findings."',
+                new Date()
+            );
+            window.localStorage.setItem(chainHintStorageKey, 'true');
         }
 
         // Load service status
