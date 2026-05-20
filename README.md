@@ -50,11 +50,9 @@ Then open the Web UI at `http://localhost:5000`.
 
 ### 3) Try sample prompts
 
-- `Analyze quarterly revenue trends` (NeMo analysis)
-- `Trigger alert for high CPU usage` (MAF action)
-- 2-step chain:
-  1. `Analyze quarterly revenue trends`
-  2. `Trigger alert for high CPU usage based on the analysis findings`
+- `Analyze quarterly revenue trends` (**NeMo**)
+- `Trigger alert for high CPU usage` (**MAF**)
+- `Analyze quarterly revenue trends and then trigger alert for high CPU usage based on the analysis findings` (**NeMo + MAF**, 2-step demo intent)
 
 ### Want more details?
 
@@ -75,7 +73,7 @@ graph TB
     
     subgraph "Agent Layer"
         NEMO["NeMo Data Analysis Agent<br/>(Python + Toolkit)<br/>Trends • Anomalies • Metrics"]
-        MAF["MAF Action Agent<br/>(.NET + Framework)<br/>Alerts • Reports • Actions"]
+        MAF["MAF Action Agent<br/>(.NET + Azure OpenAI)<br/>Alerts • Reports • Actions"]
     end
     
     subgraph "Communication"

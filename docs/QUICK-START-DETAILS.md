@@ -43,6 +43,7 @@ Examples:
 
 - NeMo path: `Analyze quarterly revenue trends`
 - MAF path: `Trigger alert for high CPU usage`
+- Combo labels in Web UI now show expected routing suffixes: `(NeMo)`, `(MAF)`, `(NeMo + MAF)`
 
 ## 2-prompt chain (NeMo -> MAF)
 

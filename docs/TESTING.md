@@ -85,11 +85,12 @@ Before deployment, verify:
 
 The chat interface includes predefined test questions. Click any question to send it through the system:
 
-- "Analyze quarterly revenue trends"
-- "Detect anomalies in system performance"
-- "Generate monthly metrics report"
-- "Trigger alert for high CPU usage"
-- "Compare year-over-year growth"
+- "Analyze quarterly revenue trends (NeMo)"
+- "Detect anomalies in system performance (NeMo)"
+- "Generate monthly metrics report (MAF)"
+- "Trigger alert for high CPU usage (MAF)"
+- "Compare year-over-year growth (NeMo)"
+- "Analyze quarterly revenue trends and then trigger alert for high CPU usage based on the analysis findings (NeMo + MAF)"
 
 ### Verify NeMo vs MAF Routing
 

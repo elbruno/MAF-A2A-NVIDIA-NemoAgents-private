@@ -68,3 +68,13 @@ test('two-prompt chain routes NeMo then MAF with analysis context', async ({ pag
   expect(action.actor.toLowerCase()).toContain('maf');
   expect(action.content.toLowerCase()).toContain('used prior nemo analysis context');
 });
+
+test('predefined question labels include routing suffixes', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#predefinedQuestionSelect')).toBeVisible();
+
+  const comboText = (await page.locator('#predefinedQuestionSelect').innerText()).replace(/\s+/g, ' ');
+  expect(comboText).toContain('Analyze quarterly revenue trends (NeMo)');
+  expect(comboText).toContain('Trigger alert for high CPU usage (MAF)');
+  expect(comboText).toContain('based on the analysis findings (NeMo + MAF)');
+});
