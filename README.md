@@ -92,6 +92,19 @@ If startup fails because local ports are already occupied:
 .\scripts\stop-port-conflicts.ps1 -Force
 ```
 
+### 🧭 Chat routing: when MAF is called
+
+`/api/chat` in `src/WebChatInterface/Program.cs` uses intent-based routing:
+
+- **MAF Action Agent is called first** only when the message includes an action keyword (`alert`, `report`, `action`, `trigger`) **and** starts with an action verb (`trigger`, `generate`, `send`, `create`, `execute`, `run`).
+- **NeMo Data Analysis Agent is called** for analysis prompts and all non-action prompts.
+- If MAF execution throws, the chat service logs a warning and falls back to NeMo.
+
+Examples:
+
+- **NeMo path**: `Analyze quarterly revenue trends`
+- **MAF path**: `Trigger alert for high CPU usage`
+
 ---
 
 ## 🏗️ System Architecture
@@ -183,7 +196,6 @@ graph TB
 - **[Testing Guide](docs/TESTING.md)** - Commands and workflows for unit, integration, and manual validation.
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Local Aspire startup plus container and cloud deployment flows.
 - **[Setup & Deployment](docs/SETUP-GUIDE.md)** - Detailed installation & troubleshooting
-- **[API Reference](docs/api-reference.md)** - Complete endpoint documentation
 - **[Contributing](docs/development/CONTRIBUTING.md)** - Development guidelines
 - **[ADRs](docs/development/architecture-decisions.md)** - Architecture decision records
 

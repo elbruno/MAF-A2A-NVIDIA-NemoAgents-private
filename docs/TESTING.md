@@ -91,6 +91,30 @@ The chat interface includes predefined test questions. Click any question to sen
 - "Trigger alert for high CPU usage"
 - "Compare year-over-year growth"
 
+### Verify NeMo vs MAF Routing
+
+Use these quick checks against `/api/chat`:
+
+```bash
+# Expected respondedBy: "NeMo Data Analysis Agent"
+curl -X POST http://localhost:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Analyze quarterly revenue trends"}'
+
+# Expected respondedBy: "MAF Action Agent"
+curl -X POST http://localhost:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Trigger alert for high CPU usage"}'
+```
+
+### Playwright Latency Test (Web UI flow)
+
+This repository includes a browser-based latency test for the exact chat flow:
+
+```bash
+npx playwright test tests/playwright/chat-latency.spec.ts
+```
+
 ## Performance Testing
 
 ### Load Testing with Apache Bench

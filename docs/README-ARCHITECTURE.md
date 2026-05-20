@@ -46,6 +46,18 @@ The MAF-A2A-NVIDIA-NemoAgents system demonstrates a modern multi-agent architect
 
 ## Data Flow Architecture
 
+### Current Chat Routing Logic (implemented)
+
+The chat endpoint (`/api/chat`) does **not** always call both agents in sequence.
+
+Routing behavior in `src/WebChatInterface/Program.cs`:
+
+1. If message intent looks like an explicit action request, Web UI calls **MAF** first:
+   - must include one of: `alert`, `report`, `action`, `trigger`
+   - and start with one of: `trigger`, `generate`, `send`, `create`, `execute`, `run`
+2. Otherwise Web UI calls **NeMo** for analysis.
+3. If the MAF action call fails, Web UI falls back to NeMo.
+
 ### Example Workflow: "Analyze Q4 Sales Data"
 
 ```
