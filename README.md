@@ -179,9 +179,9 @@ graph TB
 
 ### Orchestration
 
-- **Azure Aspire** `13.0.0+`
-- **Docker** (optional)
-- **Kubernetes** (future roadmap)
+- **Aspire** `13.0.0+`
+- **Docker** (coming soon)
+- **Kubernetes** (coming soon)
 
 ---
 
