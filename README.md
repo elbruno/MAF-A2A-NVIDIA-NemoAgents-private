@@ -25,98 +25,43 @@ This repository demonstrates a practical workflow:
 
 ## ⚡ Quick Start (3 Steps)
 
-### Prerequisites
-
-- **Python 3.10+** with pip
-- **.NET 10 SDK** (download from <https://dotnet.microsoft.com/download>)
-- **NVIDIA API key** for the NeMo agent
-- **Azure OpenAI credentials** (`AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_KEY`) for the MAF/Web orchestration path
-- **Aspire CLI** (optional, for orchestrated startup): <https://aspire.dev/get-started/install-cli/>
-
-### Step 1: Clone
+### 1) Install
 
 ```bash
 git clone https://github.com/yourusername/MAF-A2A-NVIDIA-NemoAgents.git
 cd MAF-A2A-NVIDIA-NemoAgents
-```
-
-Configure Aspire-managed secrets before startup:
-
-- **NeMo Agent**: `NVIDIA_API_KEY`
-- **MAF/Web**: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_KEY`
-
-If you are running without Aspire, use the manual setup flow in **[Manual Startup Guide](docs/MANUAL-STARTUP.md)**.
-
-### Step 2: Install Dependencies
-
-```bash
-# Create and activate a local virtual environment
 python -m venv .venv
-
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-# Linux/macOS
-source .venv/bin/activate
-
-# Install Python dependencies for NeMo and the local NAT component package
-pip install -r requirements.txt
-
-# This also installs the local NeMo data-analysis component in editable mode
 ```
-
-### Step 3: Run the System
-
-Using Aspire (recommended):
-
-```bash
-# Single command to start everything with orchestration
-aspire start
-
-# Open Aspire Dashboard at http://localhost:18888
-# Click on each service to view logs and health
-# Aspire assigns NeMo/MAF runtime ports automatically to avoid local port collisions
-```
-
-The Web UI also sends a one-time NeMo warm-up request during startup so the first demo prompt does not pay the full cold-start cost. Tune it with `NEMO_WARMUP_ENABLED`, `NEMO_WARMUP_DELAY_SECONDS`, `NEMO_WARMUP_TIMEOUT_SECONDS`, `NEMO_WARMUP_RETRY_DELAY_SECONDS`, `NEMO_WARMUP_MAX_ATTEMPTS`, and `NEMO_WARMUP_REQUEST_MAX_WAIT_SECONDS`. The default warm-up prompt now runs a small analysis workflow so it exercises the same NeMo tool path as a real demo request. If a user sends a message while warm-up is still running, the Web UI returns a fast “still warming up” response instead of leaving the chat request hanging.
-
-Chat responses now render agent markdown as formatted HTML in the conversation bubbles, so tables, lists, headings, and code blocks display correctly in the demo UI. The NeMo prompt is also constrained to return concise final answers instead of exposing raw tool-call transcripts by default, and the NeMo workflow is tuned for shorter chat-friendly replies.
-
-The chat UI now shows an animated in-chat spinner with elapsed time while a request is in progress, plus a first-request warm-up hint so users know the system is still working during initial NeMo latency.
-
-NeMo now defaults to the new **fast profile** under Aspire/manual startup (`NEMO_WORKFLOW_PROFILE=fast`). This profile uses a lighter prompt strategy, fewer tools (`analyze_time_series`, `calculate_metrics`), and a configurable smaller model via `NEMO_FAST_MODEL_NAME` (default: `meta/llama-3.2-1b-instruct`). Set `NEMO_WORKFLOW_PROFILE=standard` when you want the full four-tool workflow.
-
-If startup fails because local ports are already occupied:
 
 ```powershell
-.\scripts\check-port-conflicts.ps1
-.\scripts\stop-port-conflicts.ps1 -Force
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-### 🧭 Chat routing: when MAF is called
+Prereqs: Python 3.10+, .NET 10 SDK, NVIDIA API key, Azure OpenAI credentials.
 
-`/api/chat` in `src/WebChatInterface/Program.cs` uses intent-based routing:
+### 2) Run
 
-- **MAF Action Agent is called first** only when the message includes an action keyword (`alert`, `report`, `action`, `trigger`) **and** starts with an action verb (`trigger`, `generate`, `send`, `create`, `execute`, `run`).
-- **NeMo Data Analysis Agent is called** for analysis prompts and all non-action prompts.
-- If MAF execution throws, the chat service logs a warning and falls back to NeMo.
+```bash
+aspire start
+```
 
-Examples:
+Then open the Web UI at `http://localhost:5000`.
 
-- **NeMo path**: `Analyze quarterly revenue trends`
-- **MAF path**: `Trigger alert for high CPU usage`
+### 3) Try sample prompts
 
-### 🔗 2-prompt chain demo (NeMo -> MAF)
+- `Analyze quarterly revenue trends` (NeMo analysis)
+- `Trigger alert for high CPU usage` (MAF action)
+- 2-step chain:
+  1. `Analyze quarterly revenue trends`
+  2. `Trigger alert for high CPU usage based on the analysis findings`
 
-The chat service now supports a session-based 2-step chain:
+### Want more details?
 
-1. Prompt 1 (NeMo): `Analyze quarterly revenue trends`
-2. Prompt 2 (MAF): `Trigger alert for high CPU usage based on the analysis findings`
-
-When step 2 runs, the Web UI enriches the MAF action payload with the latest NeMo summary from the same `sessionId`:
-
-- `analysisSummary`
-- `analysisSourcePrompt`
-- `analysisCapturedAtUtc`
+- **Quick Start details**: [docs/QUICK-START-DETAILS.md](docs/QUICK-START-DETAILS.md)
+- **Manual startup**: [docs/MANUAL-STARTUP.md](docs/MANUAL-STARTUP.md)
+- **Configuration**: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+- **Testing**: [docs/TESTING.md](docs/TESTING.md)
 
 ---
 
@@ -204,11 +149,11 @@ graph TB
 
 ## 📚 Documentation
 
+- **[Quick Start Details](docs/QUICK-START-DETAILS.md)** - Extended startup, routing, and workflow notes.
 - **[Architecture Guide](docs/README-ARCHITECTURE.md)** - Deep dive into system design
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Environment variables, provider credentials, and service wiring details.
 - **[Testing Guide](docs/TESTING.md)** - Commands and workflows for unit, integration, and manual validation.
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Local Aspire startup plus container and cloud deployment flows.
-- **[Setup & Deployment](docs/SETUP-GUIDE.md)** - Detailed installation & troubleshooting
 - **[Contributing](docs/development/CONTRIBUTING.md)** - Development guidelines
 - **[ADRs](docs/development/architecture-decisions.md)** - Architecture decision records
 
