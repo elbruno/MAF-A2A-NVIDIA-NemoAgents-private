@@ -363,9 +363,10 @@ def generate_insights(
 
 
 # Dictionary mapping tool names to functions
+# Names must match workflow.yml tool definitions exactly
 TOOLS = {
-    "analyze_time_series_data": analyze_time_series_data,
-    "detect_data_anomalies": detect_data_anomalies,
+    "analyze_time_series": analyze_time_series_data,
+    "detect_anomalies": detect_data_anomalies,
     "calculate_metrics": calculate_metrics,
     "generate_insights": generate_insights,
 }

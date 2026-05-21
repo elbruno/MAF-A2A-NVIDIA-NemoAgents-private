@@ -4,7 +4,8 @@ This page contains the extended operational details behind the README Quick Star
 
 ## Startup and runtime notes
 
-- The Web UI sends a one-time NeMo warm-up request at startup so the first real prompt does not pay full cold-start cost.
+- The Web UI warm-up service is disabled by default in the Aspire AppHost so startup stays responsive.
+- You can re-enable the one-time NeMo warm-up request with `NEMO_WARMUP_ENABLED=true` if you want to preheat the first real prompt.
 - If warm-up is still running, `/api/chat` can return a short "still warming up" response.
 - The chat UI shows an in-chat spinner with elapsed time while a request is in progress.
 - Agent markdown responses are rendered as formatted HTML in chat bubbles.
