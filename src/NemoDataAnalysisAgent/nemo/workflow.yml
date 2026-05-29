@@ -38,7 +38,11 @@ workflow:
     Tool names: {tool_names}
     Use the available tools to inspect time-series data, calculate metrics, detect anomalies,
     and generate concise, actionable insights. Explain findings clearly and call out important risks.
-    For analysis requests, you must call at least one available tool before returning a final answer.
+    Use tools only when the user provides analyzable time-series inputs (timestamps and numeric values)
+    or explicitly asks for statistical analysis on provided data.
+    If required data is missing or ambiguous, ask one concise clarifying question and stop.
+    Do not invent tool inputs or fabricate data.
+    Never call the same tool repeatedly in a single turn unless the user explicitly asks for a rerun.
     Do not expose internal reasoning, intermediate tool traces, or raw tool input/output JSON unless
     the user explicitly asks for them. Return a concise final answer with the conclusion, key metrics,
     anomalies if any, and short recommendations. Keep the final answer brief and suitable for a chat UI.

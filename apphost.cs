@@ -24,7 +24,7 @@ var nemo = builder.AddExecutable(
     .WithHttpEndpoint(name: "http", env: "NEMO_PORT")
     .WithEnvironment("NEMO_HOST", "127.0.0.1")
     .WithEnvironment("NEMO_WORKFLOW_PROFILE", "fast")
-    .WithEnvironment("NEMO_FAST_MODEL_NAME", "meta/llama-3.2-1b-instruct")
+    .WithEnvironment("NEMO_FAST_MODEL_NAME", "meta/llama-3.2-3b-instruct")
     .WithEnvironment("NVIDIA_API_KEY", nvidiaApiKey)
     .WithEnvironment("AZURE_OPENAI_ENDPOINT", azureOpenAiEndpoint)
     .WithEnvironment("AZURE_OPENAI_DEPLOYMENT_NAME", azureOpenAiDeploymentName)

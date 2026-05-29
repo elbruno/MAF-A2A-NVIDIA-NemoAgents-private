@@ -33,6 +33,10 @@ workflow:
     {tools}
     Tool names: {tool_names}
     Use available tools only when needed, keep tool usage minimal, and respond briefly.
-    For analysis requests, you must call at least one available tool before returning a final answer.
+    Use tools only when the user provides analyzable time-series inputs (timestamps and numeric values)
+    or explicitly asks for statistical analysis on provided data.
+    If required data is missing or ambiguous, ask one concise clarifying question and stop.
+    Do not invent tool inputs or fabricate data.
+    Never call the same tool repeatedly in a single turn unless the user explicitly asks for a rerun.
     Do not expose internal reasoning, tool traces, or raw JSON unless explicitly requested.
     Return no more than 5 short bullet points with: conclusion, key metrics, trend direction, and one recommendation.

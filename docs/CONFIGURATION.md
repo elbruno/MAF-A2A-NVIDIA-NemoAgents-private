@@ -119,7 +119,7 @@ NEMO_WORKFLOW_PROFILE=fast  # or standard
 The fast profile is tuned for faster responses by reducing tools and prompt complexity. You can also tune its model independently:
 
 ```bash
-NEMO_FAST_MODEL_NAME=meta/llama-3.2-1b-instruct
+NEMO_FAST_MODEL_NAME=meta/llama-3.2-3b-instruct
 ```
 
 Custom analysis functions are registered by the local package in `src/NemoDataAnalysisAgent/src/nemo_data_analysis_agent`.
@@ -170,7 +170,7 @@ curl http://127.0.0.1:5055/health
 | `NEMO_PORT` | No | 8088 | NeMo agent port |
 | `NEMO_PUBLIC_BASE_URL` | No | http://127.0.0.1:8088 | Public NeMo base URL used by A2A discovery |
 | `NEMO_WORKFLOW_PROFILE` | No | fast | Select NeMo workflow profile (`fast` or `standard`) |
-| `NEMO_FAST_MODEL_NAME` | No | meta/llama-3.2-1b-instruct | Model used by fast NeMo profile |
+| `NEMO_FAST_MODEL_NAME` | No | meta/llama-3.2-3b-instruct | Model used by fast NeMo profile |
 | `MAF_HOST` | No | 127.0.0.1 | MAF agent hostname |
 | `MAF_PORT` | No | 5055 | MAF agent port |
 | `WEB_UI_HOST` | No | 127.0.0.1 | Web UI hostname |

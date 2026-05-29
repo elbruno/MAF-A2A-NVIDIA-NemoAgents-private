@@ -27,7 +27,7 @@ You can tune warm-up behavior with:
 NeMo defaults to the **fast profile**:
 
 - `NEMO_WORKFLOW_PROFILE=fast`
-- Smaller default model: `NEMO_FAST_MODEL_NAME=meta/llama-3.2-1b-instruct`
+- Smaller default model: `NEMO_FAST_MODEL_NAME=meta/llama-3.2-3b-instruct`
 - Fewer tools and lower output budget for lower latency
 
 Set `NEMO_WORKFLOW_PROFILE=standard` when you need the full workflow.
