@@ -153,6 +153,7 @@ graph TB
 ✅ **Action Monitoring** - Track real-time action execution  
 ✅ **Service Health** - Dashboard showing agent status  
 ✅ **NeMo-First Routing** - Chat responses come from NeMo analysis before optional MAF action execution  
+✅ **Bounded Agent Calls** - Web UI cancels NeMo/MAF HTTP calls when configured timeout is reached to avoid runaway waits  
 
 ### Aspire Orchestration
 

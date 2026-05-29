@@ -64,6 +64,8 @@ MAF_PORT=5055
 # Web UI
 WEB_UI_HOST=127.0.0.1
 WEB_UI_PORT=5000
+AGENT_HTTP_TIMEOUT_SECONDS=120
+NEMO_CHAT_TIMEOUT_SECONDS=120
 ```
 
 ## Observability & Tracing
@@ -175,6 +177,8 @@ curl http://127.0.0.1:5055/health
 | `MAF_PORT` | No | 5055 | MAF agent port |
 | `WEB_UI_HOST` | No | 127.0.0.1 | Web UI hostname |
 | `WEB_UI_PORT` | No | 5000 | Web UI port |
+| `AGENT_HTTP_TIMEOUT_SECONDS` | No | 120 | HTTP client timeout used by Web UI when calling NeMo/MAF |
+| `NEMO_CHAT_TIMEOUT_SECONDS` | No | 120 | Max allowed chat wait for a NeMo reply before cancellation |
 | `CHAT_ANALYSIS_CONTEXT_TTL_MINUTES` | No | 30 | TTL for storing prior NeMo analysis per chat session |
 | `CHAT_ANALYSIS_CONTEXT_MAX_LENGTH` | No | 1600 | Max stored characters for NeMo summary forwarded to MAF |
 | `ENABLE_OTEL_TRACING` | No | true | Enable OpenTelemetry tracing |

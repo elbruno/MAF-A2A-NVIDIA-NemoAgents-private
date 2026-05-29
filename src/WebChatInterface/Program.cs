@@ -107,10 +107,13 @@ builder.Services.AddCors(options =>
 });
 
 // Add HTTP Client
+var agentHttpTimeoutSeconds = int.TryParse(configuration["AGENT_HTTP_TIMEOUT_SECONDS"], out var parsedAgentHttpTimeoutSeconds)
+    ? parsedAgentHttpTimeoutSeconds
+    : 120;
 builder.Services.AddHttpClient<IAgentClient, AgentClient>(client =>
 {
     client.DefaultRequestHeaders.Add("Accept", "application/json");
-    client.Timeout = TimeSpan.FromMinutes(5);
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(agentHttpTimeoutSeconds, 10, 300));
 });
 
 // Add Health Checks
@@ -196,10 +199,10 @@ await app.RunAsync();
 // Service interfaces
 interface IAgentOrchestrator
 {
-    Task<List<ServiceDiscoveryResult>> DiscoverAgentsAsync();
-    Task<Dictionary<string, object>> RequestAnalysisAsync(AnalysisRequest request);
-    Task<ActionResult> ExecuteActionAsync(ActionRequest request);
-    Task<string> SendNemoMessageAsync(string message, string? sessionId);
+    Task<List<ServiceDiscoveryResult>> DiscoverAgentsAsync(CancellationToken cancellationToken = default);
+    Task<Dictionary<string, object>> RequestAnalysisAsync(AnalysisRequest request, CancellationToken cancellationToken = default);
+    Task<ActionResult> ExecuteActionAsync(ActionRequest request, CancellationToken cancellationToken = default);
+    Task<string> SendNemoMessageAsync(string message, string? sessionId, CancellationToken cancellationToken = default);
 }
 
 interface IChatService
@@ -215,8 +218,8 @@ interface IConversationContextStore
 
 interface IAgentClient
 {
-    Task<T> GetAsync<T>(string url);
-    Task<T> PostAsync<T>(string url, object payload);
+    Task<T> GetAsync<T>(string url, CancellationToken cancellationToken = default);
+    Task<T> PostAsync<T>(string url, object payload, CancellationToken cancellationToken = default);
 }
 
 record AnalysisContextEntry(string SourcePrompt, string Summary, DateTime CapturedAtUtc);
@@ -233,14 +236,14 @@ class AgentClient : IAgentClient
         _logger = logger;
     }
 
-    public async Task<T> GetAsync<T>(string url)
+    public async Task<T> GetAsync<T>(string url, CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _httpClient.GetAsync(url);
+            var response = await _httpClient.GetAsync(url, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
                 return JsonSerializer.Deserialize<T>(content, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
@@ -255,17 +258,17 @@ class AgentClient : IAgentClient
         }
     }
 
-    public async Task<T> PostAsync<T>(string url, object payload)
+    public async Task<T> PostAsync<T>(string url, object payload, CancellationToken cancellationToken = default)
     {
         try
         {
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(url, content);
+            var response = await _httpClient.PostAsync(url, content, cancellationToken);
             
             if (response.IsSuccessStatusCode)
             {
-                var responseContent = await response.Content.ReadAsStringAsync();
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
@@ -294,7 +297,7 @@ class AgentOrchestrator : IAgentOrchestrator
         _logger = logger;
     }
 
-    public async Task<List<ServiceDiscoveryResult>> DiscoverAgentsAsync()
+    public async Task<List<ServiceDiscoveryResult>> DiscoverAgentsAsync(CancellationToken cancellationToken = default)
     {
         var results = new List<ServiceDiscoveryResult>();
         
@@ -304,7 +307,7 @@ class AgentOrchestrator : IAgentOrchestrator
         var nemoCardUrl = BuildCardUrl(nemoDiscoveryEndpoint);
         try
         {
-            var cardPayload = await _agentClient.GetAsync<JsonElement>(nemoCardUrl);
+            var cardPayload = await _agentClient.GetAsync<JsonElement>(nemoCardUrl, cancellationToken);
             var card = ParseAgentCard(cardPayload, nemoDiscoveryEndpoint);
             results.Add(new ServiceDiscoveryResult
             {
@@ -327,7 +330,7 @@ class AgentOrchestrator : IAgentOrchestrator
         var mafCardUrl = BuildCardUrl(mafDiscoveryEndpoint);
         try
         {
-            var cardPayload = await _agentClient.GetAsync<JsonElement>(mafCardUrl);
+            var cardPayload = await _agentClient.GetAsync<JsonElement>(mafCardUrl, cancellationToken);
             var card = ParseAgentCard(cardPayload, mafDiscoveryEndpoint);
             results.Add(new ServiceDiscoveryResult
             {
@@ -497,20 +500,20 @@ class AgentOrchestrator : IAgentOrchestrator
         return false;
     }
 
-    public async Task<Dictionary<string, object>> RequestAnalysisAsync(AnalysisRequest request)
+    public async Task<Dictionary<string, object>> RequestAnalysisAsync(AnalysisRequest request, CancellationToken cancellationToken = default)
     {
         var nemoEndpoint = ResolveServiceEndpoint(_configuration["NEMO_A2A_ENDPOINT"], "http://127.0.0.1:8088");
         // Send A2A JSON-RPC request to NeMo agent
-        return await _agentClient.PostAsync<Dictionary<string, object>>(nemoEndpoint, request);
+        return await _agentClient.PostAsync<Dictionary<string, object>>(nemoEndpoint, request, cancellationToken);
     }
 
-    public async Task<ActionResult> ExecuteActionAsync(ActionRequest request)
+    public async Task<ActionResult> ExecuteActionAsync(ActionRequest request, CancellationToken cancellationToken = default)
     {
         var mafEndpoint = NormalizeServiceBaseEndpoint(ResolveServiceEndpoint(_configuration["MAF_AGENT_ENDPOINT"], "http://127.0.0.1:5055"));
-        return await _agentClient.PostAsync<ActionResult>($"{mafEndpoint}/api/actions/execute", request);
+        return await _agentClient.PostAsync<ActionResult>($"{mafEndpoint}/api/actions/execute", request, cancellationToken);
     }
 
-    public async Task<string> SendNemoMessageAsync(string message, string? sessionId)
+    public async Task<string> SendNemoMessageAsync(string message, string? sessionId, CancellationToken cancellationToken = default)
     {
         var nemoEndpoint = ResolveServiceEndpoint(_configuration["NEMO_A2A_ENDPOINT"], "http://127.0.0.1:8088");
         var resolvedSessionId = string.IsNullOrWhiteSpace(sessionId)
@@ -542,7 +545,7 @@ class AgentOrchestrator : IAgentOrchestrator
             }
         };
 
-        var responsePayload = await _agentClient.PostAsync<JsonElement>(nemoEndpoint, payload);
+        var responsePayload = await _agentClient.PostAsync<JsonElement>(nemoEndpoint, payload, cancellationToken);
         return ExtractNemoTextResponse(responsePayload);
     }
 
@@ -694,7 +697,7 @@ class ChatService : IChatService
         _logger = logger;
         var timeoutSeconds = int.TryParse(configuration["NEMO_CHAT_TIMEOUT_SECONDS"], out var parsedSeconds)
             ? parsedSeconds
-            : 300;
+            : 120;
         _nemoTimeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 300));
         var warmupWaitSeconds = int.TryParse(configuration["NEMO_WARMUP_REQUEST_MAX_WAIT_SECONDS"], out var parsedWarmupWaitSeconds)
             ? parsedWarmupWaitSeconds
@@ -775,7 +778,8 @@ class ChatService : IChatService
                 return response;
             }
 
-            var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, sessionId).WaitAsync(_nemoTimeout);
+            using var requestTimeoutCts = new CancellationTokenSource(_nemoTimeout);
+            var nemoReply = await _orchestrator.SendNemoMessageAsync(request.Message, sessionId, requestTimeoutCts.Token);
             var cleanedNemoReply = CleanNemoReply(nemoReply);
             _contextStore.SaveAnalysis(sessionId, request.Message, cleanedNemoReply);
             response.RespondedBy = "NeMo Data Analysis Agent";
@@ -1098,9 +1102,10 @@ class AgentWarmupService : BackgroundService
             {
                 _logger.LogInformation("Starting NeMo warm-up attempt {Attempt} of {MaxAttempts}.", attempt, _maxAttempts);
 
+                using var warmupAttemptCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                warmupAttemptCts.CancelAfter(_warmupTimeout);
                 var warmupReply = await _orchestrator
-                    .SendNemoMessageAsync(_warmupMessage, $"warmup-{Guid.NewGuid():N}")
-                    .WaitAsync(_warmupTimeout, stoppingToken);
+                    .SendNemoMessageAsync(_warmupMessage, $"warmup-{Guid.NewGuid():N}", warmupAttemptCts.Token);
 
                 _logger.LogInformation(
                     "NeMo warm-up completed on attempt {Attempt}. Reply: {WarmupReply}",
@@ -1113,6 +1118,10 @@ class AgentWarmupService : BackgroundService
             {
                 _logger.LogInformation("NeMo warm-up canceled during shutdown.");
                 return;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("NeMo warm-up attempt {Attempt} timed out after {TimeoutSeconds} seconds.", attempt, _warmupTimeout.TotalSeconds);
             }
             catch (Exception ex)
             {
